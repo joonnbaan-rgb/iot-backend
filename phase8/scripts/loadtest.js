@@ -37,12 +37,13 @@ export const options = {
   },
 };
 
-let cachedToken = null;
-
-function ensureAuth() {
-  if (cachedToken) return cachedToken;
-
-  // พยายาม register ก่อน (เผื่อ user ยังไม่มี) แล้วค่อย login — ถ้า register ล้มเหลวเพราะมี user อยู่แล้วก็ไม่เป็นไร
+// --- setup() รันแค่ครั้งเดียวก่อนเริ่มโหลดเทสต์ (ไม่นับรวมใน VU/iteration ใด ๆ) ---
+// สำคัญ: login แค่ครั้งเดียวที่นี่ แล้วแชร์ token เดียวกันให้ทุก VU ใช้ร่วมกัน
+// เพราะ /auth/login ถูก rate-limit ไว้ที่ 5 ครั้ง/นาที (กัน brute-force) — ถ้าให้ทุก VU
+// login เองจะชน rate limit นี้ทันทีเมื่อมี VU พร้อมกันหลายสิบตัว (เหมือนที่เคยเกิดขึ้นจริง
+// ตอนรันครั้งแรก ได้ error rate 98%)
+export function setup() {
+  // พยายาม register ก่อน (เผื่อ user ยังไม่มี) — ถ้ามีอยู่แล้วจะได้ 409 ซึ่งไม่เป็นไร
   http.post(
     `${BASE_URL}/auth/register`,
     JSON.stringify({ email: EMAIL, password: PASSWORD }),
@@ -55,29 +56,28 @@ function ensureAuth() {
     { headers: { 'Content-Type': 'application/json' } },
   );
 
-  check(loginRes, { 'login ok': (r) => r.status === 200 || r.status === 201 });
-
-  if (loginRes.status === 200 || loginRes.status === 201) {
-    cachedToken = JSON.parse(loginRes.body).accessToken;
+  if (loginRes.status !== 200 && loginRes.status !== 201) {
+    throw new Error(
+      `setup(): login ล้มเหลว (status ${loginRes.status}) — ตรวจสอบว่า backend รันอยู่ และ EMAIL/PASSWORD ถูกต้อง: ${loginRes.body}`,
+    );
   }
-  return cachedToken;
+
+  const token = JSON.parse(loginRes.body).accessToken;
+  return { token };
 }
 
-export default function () {
-  // 1) Health check — endpoint สาธารณะ ไม่ต้อง auth
+export default function (data) {
+  // 1) Health check — endpoint สาธารณะ ไม่ต้อง auth และไม่ถูก rate limit (SkipThrottle)
   const healthRes = http.get(`${BASE_URL}/health`);
   check(healthRes, { 'health status is 200': (r) => r.status === 200 });
 
-  // 2) Auth + authenticated endpoint
-  const token = ensureAuth();
-  if (token) {
-    const devicesRes = http.get(`${BASE_URL}/devices`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    check(devicesRes, {
-      'devices list status is 200': (r) => r.status === 200,
-    });
-  }
+  // 2) Authenticated endpoint — ใช้ token เดียวกันที่ login ไว้ใน setup() ไม่ login ซ้ำทุก VU
+  const devicesRes = http.get(`${BASE_URL}/devices`, {
+    headers: { Authorization: `Bearer ${data.token}` },
+  });
+  check(devicesRes, {
+    'devices list status is 200': (r) => r.status === 200,
+  });
 
   sleep(1);
 }

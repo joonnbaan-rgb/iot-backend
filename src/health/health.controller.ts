@@ -4,8 +4,13 @@ import { DataSource } from 'typeorm';
 import { MqttService } from '../mqtt/mqtt.service';
 import * as net from 'net';
 import { ConfigService } from '@nestjs/config';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../auth/decorators/public.decorator';
 
+// health check ต้องไม่ถูก rate limit เพราะระบบ monitoring/load balancer/Kubernetes
+// liveness-readiness probe จะยิงเข้ามาถี่ (ทุก 5-10 วินาที) ซึ่งปกติมาก
+// ถ้าโดน throttle จะทำให้ระบบดูเหมือน "down" ทั้งที่จริง ๆ ทำงานปกติดี
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(
