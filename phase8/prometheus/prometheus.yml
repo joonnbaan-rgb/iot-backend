@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'iot-backend'
+    metrics_path: /metrics
+    static_configs:
+      # backend รันบน host (npm run start:dev) ไม่ได้อยู่ใน docker network
+      # host.docker.internal คือทางเข้าถึง host จากใน container (Docker Desktop บน Windows/Mac รองรับโดยอัตโนมัติ)
+      - targets: ['host.docker.internal:3000']
+        labels:
+          service: 'iot-backend'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

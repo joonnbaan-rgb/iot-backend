@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<title>IoT Dashboard (ทดสอบ API + WebSocket)</title>
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  h3 { font-size: 14px; margin: 0 0 10px; color: #cbd5e1; }
+  .sub { color: #94a3b8; font-size: 13px; margin-bottom: 16px; }
+  .panel {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; margin-top: 8px; }
+  label:first-child { margin-top: 0; }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #475569;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 13px;
+  }
+  button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    margin-right: 8px;
+    margin-top: 12px;
+  }
+  button:hover { background: #2563eb; }
+  button.secondary { background: #475569; }
+  button.secondary:hover { background: #334155; }
+  button.danger { background: #b91c1c; }
+  button.danger:hover { background: #991b1b; }
+  #wsStatus { font-size: 13px; margin-top: 8px; }
+  #wsStatus.connected { color: #4ade80; }
+  #wsStatus.disconnected { color: #f87171; }
+
+  /* Top bar */
+  .topbar {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .topbar .field { flex: 1; min-width: 220px; }
+  .authbadge {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #334155;
+    white-space: nowrap;
+  }
+  .authbadge.on { background: #166534; color: #bbf7d0; }
+
+  /* Tabs */
+  .tabbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tabbtn {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    margin: 0;
+    padding: 8px 14px;
+  }
+  .tabbtn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+  .tabpanel { display: none; }
+  .tabpanel.active { display: block; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .hint { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .admin-tag { color: #fbbf24; font-size: 11px; margin-left: 6px; }
+
+  #log, #apiLog {
+    height: 380px;
+    overflow-y: auto;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 10px;
+    font-family: 'Cascadia Code', Consolas, monospace;
+    font-size: 12px;
+  }
+  .entry { padding: 6px 0; border-bottom: 1px solid #1e293b; }
+  .entry .tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    margin-right: 8px;
+    font-weight: bold;
+  }
+  .tag.telemetry { background: #1e40af; }
+  .tag.status { background: #166534; }
+  .tag.command { background: #a16207; }
+  .tag.rule { background: #7e22ce; }
+  .tag.system { background: #475569; }
+  .time { color: #64748b; margin-right: 8px; }
+
+  .api-entry { padding: 8px 0; border-bottom: 1px solid #1e293b; }
+  .api-entry-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .method {
+    font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 4px;
+    background: #334155; color: #e2e8f0;
+  }
+  .method.POST { background: #166534; }
+  .method.GET { background: #1e40af; }
+  .method.PATCH, .method.PUT { background: #a16207; }
+  .method.DELETE { background: #991b1b; }
+  .path { color: #cbd5e1; }
+  .statusbadge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+  .statusbadge.ok { background: #166534; color: #bbf7d0; }
+  .statusbadge.err { background: #991b1b; color: #fecaca; }
+  .api-body {
+    margin: 6px 0 0;
+    background: #020617;
+    border-radius: 6px;
+    padding: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #a5b4fc;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+  <h1>🛰️ IoT Dashboard — ทดสอบ API + Real-time</h1>
+  <p class="sub">หน้านี้เป็นไฟล์ static ธรรมดา ไม่ต้อง build เชื่อมต่อ backend ตรงๆ จากเบราว์เซอร์</p>
+
+  <div class="panel topbar">
+    <div class="field">
+      <label>Backend URL</label>
+      <input id="backendUrlGlobal" value="http://localhost:3000" />
+    </div>
+    <div class="field">
+      <label>Access Token (ได้จากแท็บ 🔑 Auth หลัง login หรือวางเองก็ได้)</label>
+      <input id="accessTokenGlobal" placeholder="วาง access_token ตรงนี้ หรือ login ในแท็บ Auth ให้เติมอัตโนมัติ" />
+    </div>
+    <div id="authBadge" class="authbadge">⚪ ยังไม่ได้ login</div>
+  </div>
+
+  <div class="tabbar">
+    <button class="tabbtn active" onclick="showTab('realtime')">🔌 Realtime</button>
+    <button class="tabbtn" onclick="showTab('auth')">🔑 Auth</button>
+    <button class="tabbtn" onclick="showTab('users')">👤 Users</button>
+    <button class="tabbtn" onclick="showTab('devices')">📟 Devices</button>
+    <button class="tabbtn" onclick="showTab('telemetry')">📊 Telemetry</button>
+    <button class="tabbtn" onclick="showTab('commands')">🎮 Commands</button>
+    <button class="tabbtn" onclick="showTab('rules')">⚙️ Rules</button>
+    <button class="tabbtn" onclick="showTab('camera')">📷 Camera</button>
+    <button class="tabbtn" onclick="showTab('notifications')">🔔 Notifications</button>
+    <button class="tabbtn" onclick="showTab('health')">❤️ Health</button>
+  </div>
+
+  <!-- ===================== REALTIME TAB (ของเดิม) ===================== -->
+  <div id="tab-realtime" class="tabpanel active">
+    <div class="grid2">
+      <div class="panel">
+        <h3>การเชื่อมต่อ WebSocket</h3>
+        <label>Access Token สำหรับ WebSocket</label>
+        <input id="wsToken" placeholder="จะเติมอัตโนมัติถ้า login ในแท็บ Auth" />
+        <button onclick="wsConnect()">เชื่อมต่อ</button>
+        <button class="secondary" onclick="wsDisconnect()">ตัดการเชื่อมต่อ</button>
+        <div id="wsStatus" class="disconnected">● ยังไม่ได้เชื่อมต่อ</div>
+
+        <label style="margin-top:16px;">Subscribe เพื่อดู telemetry ของอุปกรณ์ตัวใดตัวหนึ่ง (device:status และ rule:triggered เห็นทุกอุปกรณ์อยู่แล้วโดยไม่ต้อง subscribe)</label>
+        <input id="deviceId" placeholder="device_id ที่ต้องการดู telemetry" />
+        <button onclick="subscribeDevice()">Subscribe</button>
+        <button class="secondary" onclick="unsubscribeDevice()">Unsubscribe</button>
+      </div>
+
+      <div class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <strong style="font-size:13px;">Event Log</strong>
+          <button class="secondary" style="margin:0;" onclick="document.getElementById('log').innerHTML=''">ล้าง log</button>
+        </div>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== AUTH TAB ===================== -->
+  <div id="tab-auth" class="tabpanel">
+    <div class="grid2">
+      <div>
+        <div class="panel">
+          <h3>สมัครสมาชิก (คนแรกกลายเป็น admin อัตโนมัติ)</h3>
+          <label>Email</label>
+          <input id="regEmail" placeholder="admin@example.com" />
+          <label>Password</label>
+          <input id="regPassword" type="password" placeholder="อย่างน้อย 8 ตัวอักษร" />
+          <button onclick="doRegister()">Register</button>
+        </div>
+
+        <div class="panel">
+          <h3>ล็อกอิน</h3>
+          <label>Email</label>
+          <input id="loginEmail" placeholder="admin@example.com" />
+          <label>Password</label>
+          <input id="loginPassword" type="password" />
+          <button onclick="doLogin()">Login</button>
+          <div class="hint">สำเร็จแล้วจะเติม access/refresh token ให้อัตโนมัติทั้งในแท็บนี้และแท็บ Realtime</div>
+        </div>
+
+        <div class="panel">
+          <h3>ดูข้อมูลตัวเอง</h3>
+          <button onclick="callApi('GET','/auth/me',undefined,true)">GET /auth/me</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <h3>Refresh token (แบบ rotate — ใช้แล้ว token เก่าใช้ซ้ำไม่ได้)</h3>
+          <label>Refresh Token</label>
+          <input id="refreshTokenInput" placeholder="จะเติมอัตโนมัติหลัง login" />
+          <button onclick="doRefresh()">Refresh</button>
+        </div>
+
+        <div class="panel">
+          <h3>ออกจากระบบ</h3>
+          <label>Refresh Token ที่จะ revoke</label>
+          <input id="logoutTokenInput" placeholder="จะเติมอัตโนมัติหลัง login" />
+          <button class="danger" onclick="doLogout()">Logout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== USERS TAB ===================== -->
+  <div id="tab-users" class="tabpanel">
+    <div class="grid2">
+      <div class="panel">
+        <h3>รายชื่อผู้ใช้ทั้งหมด <span class="admin-tag">admin เท่านั้น</span></h3>
+        <button onclick="callApi('GET','/users',undefined,true)">GET /users</button>
+      </div>
+      <div class="panel">
+        <h3>เปลี่ยน role ผู้ใช้ <span class="admin-tag">admin เท่านั้น</span></h3>
+        <label>User ID</label>
+        <input id="userRoleId" placeholder="uuid ของผู้ใช้" />
+        <label>Role ใหม่</label>
+        <select id="userRoleValue">
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
+        <button onclick="updateUserRole()">PATCH /users/:id/role</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== DEVICES TAB ===================== -->
+  <div id="tab-devices" class="tabpanel">
+    <div class="grid2">
+      <div>
+        <div class="panel">
+          <h3>รายการอุปกรณ์ทั้งหมด</h3>
+          <button onclick="callApi('GET','/devices',undefined,true)">GET /devices</button>
+        </div>
+        <div class="panel">
+          <h3>ดูอุปกรณ์ตัวเดียว</h3>
+          <label>Device ID</label>
+          <input id="getDeviceId" placeholder="uuid ของอุปกรณ์" />
+          <button onclick="getDevice()">GET /devices/:id</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>สร้างอุปกรณ์ใหม่ <span class="admin-tag">admin เท่านั้น</span></h3>
+        <label>ชื่ออุปกรณ์</label>
+        <input id="newDeviceName" placeholder="เซนเซอร์อุณหภูมิห้องนอน" />
+        <label>ประเภท</label>
+        <select id="newDeviceType">
+          <option value="sensor">sensor</option>
+          <option value="camera">camera</option>
+          <option value="actuator">actuator</option>
+        </select>
+        <label>ตำแหน่ง (ไม่บังคับ)</label>
+        <input id="newDeviceLocation" placeholder="bedroom" />
+        <button onclick="createDevice()">POST /devices</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TELEMETRY TAB ===================== -->
+  <div id="tab-telemetry" class="tabpanel">
+    <div class="panel">
+      <h3>ดูข้อมูล telemetry ย้อนหลังของอุปกรณ์</h3>
+      <div class="grid2">
+        <div>
+          <label>Device ID (ของเซนเซอร์)</label>
+          <input id="telemetryDeviceId" placeholder="uuid ของเซนเซอร์" />
+        </div>
+        <div>
+          <label>Limit (ไม่บังคับ)</label>
+          <input id="telemetryLimit" placeholder="50" />
+        </div>
+      </div>
+      <button onclick="getTelemetry()">GET /devices/:id/telemetry</button>
+    </div>
+  </div>
+
+  <!-- ===================== COMMANDS TAB ===================== -->
+  <div id="tab-commands" class="tabpanel">
+    <div class="grid2">
+      <div>
+        <div class="panel">
+          <h3>สั่งงานอุปกรณ์ (actuator)</h3>
+          <label>Device ID</label>
+          <input id="cmdDeviceId" placeholder="uuid ของอุปกรณ์ไฟฟ้า" />
+          <label>Action</label>
+          <input id="cmdAction" placeholder="turn_on หรือ turn_off" />
+          <button onclick="sendCommand()">POST /devices/:id/commands</button>
+        </div>
+        <div class="panel">
+          <h3>ดูประวัติคำสั่งของอุปกรณ์</h3>
+          <label>Device ID</label>
+          <input id="cmdHistoryDeviceId" placeholder="uuid ของอุปกรณ์" />
+          <label>Limit (ไม่บังคับ)</label>
+          <input id="cmdHistoryLimit" placeholder="50" />
+          <button onclick="getCommandHistory()">GET /devices/:id/commands</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>ดูสถานะคำสั่งตัวเดียว (ใช้ poll ผลลัพธ์)</h3>
+        <label>Device ID</label>
+        <input id="cmdOneDeviceId" placeholder="uuid ของอุปกรณ์" />
+        <label>Command ID</label>
+        <input id="cmdOneId" placeholder="uuid ของคำสั่ง (ได้จากตอนสั่งงานด้านซ้าย)" />
+        <button onclick="getCommandOne()">GET /devices/:id/commands/:commandId</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== RULES TAB ===================== -->
+  <div id="tab-rules" class="tabpanel">
+    <div class="grid2">
+      <div>
+        <div class="panel">
+          <h3>สร้าง Rule ใหม่</h3>
+          <label>ชื่อ Rule (ไม่บังคับ)</label>
+          <input id="ruleName" placeholder="เปิดพัดลมเมื่อร้อน" />
+          <label>Sensor Device ID</label>
+          <input id="ruleSensorId" placeholder="uuid ของเซนเซอร์" />
+          <label>Operator</label>
+          <select id="ruleOperator">
+            <option value=">">&gt;</option>
+            <option value="<">&lt;</option>
+            <option value=">=">&gt;=</option>
+            <option value="<=">&lt;=</option>
+            <option value="==">==</option>
+            <option value="!=">!=</option>
+          </select>
+          <label>Threshold</label>
+          <input id="ruleThreshold" placeholder="25" />
+          <label>Target Device ID (อุปกรณ์ที่จะถูกสั่ง)</label>
+          <input id="ruleTargetId" placeholder="uuid ของอุปกรณ์ไฟฟ้า" />
+          <label>Action</label>
+          <input id="ruleAction" placeholder="turn_on" />
+          <label>Cooldown (วินาที, ไม่บังคับ)</label>
+          <input id="ruleCooldown" placeholder="60" />
+          <button onclick="createRule()">POST /rules</button>
+        </div>
+
+        <div class="panel">
+          <h3>รายการ Rule ทั้งหมด</h3>
+          <button onclick="callApi('GET','/rules',undefined,true)">GET /rules</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <h3>ดู / แก้ไข / ลบ Rule ตัวเดียว</h3>
+          <label>Rule ID</label>
+          <input id="ruleOneId" placeholder="uuid ของ rule" />
+          <button onclick="getRuleOne()">GET /rules/:id</button>
+          <button class="secondary" onclick="getRuleLogs()">GET /rules/:id/logs</button>
+          <button class="danger" onclick="deleteRule()">DELETE /rules/:id</button>
+
+          <label style="margin-top:16px;">เปิด/ปิดใช้งาน Rule นี้ (PATCH)</label>
+          <select id="ruleEnabledValue">
+            <option value="true">enabled: true</option>
+            <option value="false">enabled: false</option>
+          </select>
+          <button onclick="toggleRule()">PATCH /rules/:id</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== CAMERA TAB ===================== -->
+  <div id="tab-camera" class="tabpanel">
+    <div class="grid2">
+      <div class="panel">
+        <h3>ตั้งค่า RTSP source ของกล้อง</h3>
+        <label>Camera Device ID</label>
+        <input id="camDeviceId" placeholder="uuid ของกล้อง" />
+        <label>RTSP URL</label>
+        <input id="camRtspUrl" placeholder="rtsp://user:pass@192.168.1.50:554/stream1" />
+        <button onclick="setCameraSource()">PUT /devices/:id/camera</button>
+      </div>
+      <div>
+        <div class="panel">
+          <h3>ดู URL สำหรับเปิดสตรีมสด</h3>
+          <label>Camera Device ID</label>
+          <input id="camStreamId" placeholder="uuid ของกล้อง" />
+          <button onclick="getCameraStream()">GET /devices/:id/camera/stream</button>
+        </div>
+        <div class="panel">
+          <h3>ดูรายการคลิปที่บันทึกไว้</h3>
+          <label>Camera Device ID</label>
+          <input id="camRecId" placeholder="uuid ของกล้อง" />
+          <label>Limit (ไม่บังคับ)</label>
+          <input id="camRecLimit" placeholder="50" />
+          <button onclick="getCameraRecordings()">GET /devices/:id/camera/recordings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== NOTIFICATIONS TAB ===================== -->
+  <div id="tab-notifications" class="tabpanel">
+    <div class="panel">
+      <h3>ประวัติการแจ้งเตือน</h3>
+      <label>Limit (ไม่บังคับ)</label>
+      <input id="notifLimit" placeholder="50" />
+      <button onclick="getNotifications()">GET /notifications</button>
+    </div>
+  </div>
+
+  <!-- ===================== HEALTH TAB ===================== -->
+  <div id="tab-health" class="tabpanel">
+    <div class="panel">
+      <h3>เช็คสถานะระบบ (public ไม่ต้อง login)</h3>
+      <button onclick="callApi('GET','/health',undefined,false)">GET /health</button>
+    </div>
+  </div>
+
+  <!-- ===================== API RESPONSE LOG (ใช้ร่วมกันทุกแท็บ) ===================== -->
+  <div class="panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:13px;">API Response Log</strong>
+      <button class="secondary" style="margin:0;" onclick="document.getElementById('apiLog').innerHTML=''">ล้าง log</button>
+    </div>
+    <div id="apiLog"></div>
+  </div>
+
+<script>
+  // ======================= STATE ที่ใช้ร่วมกันทุกแท็บ =======================
+  let accessToken = '';
+  let refreshToken = '';
+
+  function backendUrl() {
+    return document.getElementById('backendUrlGlobal').value.trim().replace(/\/$/, '');
+  }
+
+  function setTokens(access, refresh) {
+    accessToken = access || '';
+    refreshToken = refresh || '';
+    document.getElementById('accessTokenGlobal').value = accessToken;
+    document.getElementById('wsToken').value = accessToken;
+    if (refreshToken) {
+      document.getElementById('refreshTokenInput').value = refreshToken;
+      document.getElementById('logoutTokenInput').value = refreshToken;
+    }
+    const badge = document.getElementById('authBadge');
+    if (accessToken) {
+      badge.textContent = '🟢 มี token แล้ว';
+      badge.classList.add('on');
+    } else {
+      badge.textContent = '⚪ ยังไม่ได้ login';
+      badge.classList.remove('on');
+    }
+  }
+
+  // เผื่อผู้ใช้วาง token เองในช่อง global โดยไม่ผ่านปุ่ม login ก็ให้ sync เข้า state ด้วย
+  document.getElementById('accessTokenGlobal').addEventListener('change', (e) => {
+    accessToken = e.target.value.trim();
+    document.getElementById('wsToken').value = accessToken;
+  });
+
+  // ======================= TAB SWITCHING =======================
+  function showTab(name) {
+    document.querySelectorAll('.tabpanel').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll('.tabbtn').forEach((el) => el.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // ======================= GENERIC API CALLER =======================
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  }
+
+  async function callApi(method, path, body, useAuth) {
+    const url = backendUrl() + path;
+    const headers = {};
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (useAuth && accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+
+    let status = 0;
+    let data;
+    try {
+      const res = await fetch(url, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+      status = res.status;
+      const text = await res.text();
+      try { data = JSON.parse(text); } catch { data = text || '(ไม่มีเนื้อหาตอบกลับ)'; }
+    } catch (err) {
+      data = { error: 'เรียก API ไม่สำเร็จ: ' + err.message + ' (เช็คว่า backend รันอยู่และ URL ถูกต้อง)' };
+    }
+    logApiCall(method, path, status, data);
+    return { status, data };
+  }
+
+  function logApiCall(method, path, status, data) {
+    const el = document.getElementById('apiLog');
+    const time = new Date().toLocaleTimeString('th-TH');
+    const ok = status >= 200 && status < 300;
+    const div = document.createElement('div');
+    div.className = 'api-entry';
+    div.innerHTML = `
+      <div class="api-entry-head">
+        <span class="time">${time}</span>
+        <span class="method ${method}">${method}</span>
+        <span class="path">${escapeHtml(path)}</span>
+        <span class="statusbadge ${ok ? 'ok' : 'err'}">${status || 'ERR'}</span>
+      </div>
+      <pre class="api-body">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+    `;
+    el.prepend(div);
+  }
+
+  function qs(params) {
+    const entries = Object.entries(params).filter(([, v]) => v !== '' && v !== undefined && v !== null);
+    if (entries.length === 0) return '';
+    return '?' + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+  }
+
+  // ======================= AUTH =======================
+  async function doRegister() {
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+    await callApi('POST', '/auth/register', { email, password }, false);
+  }
+
+  async function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const { status, data } = await callApi('POST', '/auth/login', { email, password }, false);
+    if (status === 200 && data.access_token) {
+      setTokens(data.access_token, data.refresh_token);
+    }
+  }
+
+  async function doRefresh() {
+    const refresh_token = document.getElementById('refreshTokenInput').value.trim();
+    const { status, data } = await callApi('POST', '/auth/refresh', { refresh_token }, false);
+    if (status === 200 && data.access_token) {
+      setTokens(data.access_token, data.refresh_token);
+    }
+  }
+
+  async function doLogout() {
+    const refresh_token = document.getElementById('logoutTokenInput').value.trim();
+    const { status } = await callApi('POST', '/auth/logout', { refresh_token }, false);
+    if (status === 200) setTokens('', '');
+  }
+
+  // ======================= USERS =======================
+  async function updateUserRole() {
+    const id = document.getElementById('userRoleId').value.trim();
+    const role = document.getElementById('userRoleValue').value;
+    await callApi('PATCH', `/users/${id}/role`, { role }, true);
+  }
+
+  // ======================= DEVICES =======================
+  async function getDevice() {
+    const id = document.getElementById('getDeviceId').value.trim();
+    await callApi('GET', `/devices/${id}`, undefined, true);
+  }
+
+  async function createDevice() {
+    const name = document.getElementById('newDeviceName').value.trim();
+    const type = document.getElementById('newDeviceType').value;
+    const location = document.getElementById('newDeviceLocation').value.trim();
+    const body = { name, type };
+    if (location) body.location = location;
+    await callApi('POST', '/devices', body, true);
+  }
+
+  // ======================= TELEMETRY =======================
+  async function getTelemetry() {
+    const id = document.getElementById('telemetryDeviceId').value.trim();
+    const limit = document.getElementById('telemetryLimit').value.trim();
+    await callApi('GET', `/devices/${id}/telemetry${qs({ limit })}`, undefined, true);
+  }
+
+  // ======================= COMMANDS =======================
+  async function sendCommand() {
+    const id = document.getElementById('cmdDeviceId').value.trim();
+    const action = document.getElementById('cmdAction').value.trim();
+    await callApi('POST', `/devices/${id}/commands`, { action }, true);
+  }
+
+  async function getCommandHistory() {
+    const id = document.getElementById('cmdHistoryDeviceId').value.trim();
+    const limit = document.getElementById('cmdHistoryLimit').value.trim();
+    await callApi('GET', `/devices/${id}/commands${qs({ limit })}`, undefined, true);
+  }
+
+  async function getCommandOne() {
+    const id = document.getElementById('cmdOneDeviceId').value.trim();
+    const commandId = document.getElementById('cmdOneId').value.trim();
+    await callApi('GET', `/devices/${id}/commands/${commandId}`, undefined, true);
+  }
+
+  // ======================= RULES =======================
+  async function createRule() {
+    const body = {
+      name: document.getElementById('ruleName').value.trim() || undefined,
+      sensor_device_id: document.getElementById('ruleSensorId').value.trim(),
+      operator: document.getElementById('ruleOperator').value,
+      threshold: parseFloat(document.getElementById('ruleThreshold').value),
+      target_device_id: document.getElementById('ruleTargetId').value.trim(),
+      action: document.getElementById('ruleAction').value.trim(),
+    };
+    const cooldown = document.getElementById('ruleCooldown').value.trim();
+    if (cooldown) body.cooldown_seconds = parseInt(cooldown, 10);
+    await callApi('POST', '/rules', body, true);
+  }
+
+  async function getRuleOne() {
+    const id = document.getElementById('ruleOneId').value.trim();
+    await callApi('GET', `/rules/${id}`, undefined, true);
+  }
+
+  async function getRuleLogs() {
+    const id = document.getElementById('ruleOneId').value.trim();
+    await callApi('GET', `/rules/${id}/logs`, undefined, true);
+  }
+
+  async function deleteRule() {
+    const id = document.getElementById('ruleOneId').value.trim();
+    await callApi('DELETE', `/rules/${id}`, undefined, true);
+  }
+
+  async function toggleRule() {
+    const id = document.getElementById('ruleOneId').value.trim();
+    const enabled = document.getElementById('ruleEnabledValue').value === 'true';
+    await callApi('PATCH', `/rules/${id}`, { enabled }, true);
+  }
+
+  // ======================= CAMERA =======================
+  async function setCameraSource() {
+    const id = document.getElementById('camDeviceId').value.trim();
+    const rtsp_url = document.getElementById('camRtspUrl').value.trim();
+    await callApi('PUT', `/devices/${id}/camera`, { rtsp_url }, true);
+  }
+
+  async function getCameraStream() {
+    const id = document.getElementById('camStreamId').value.trim();
+    await callApi('GET', `/devices/${id}/camera/stream`, undefined, true);
+  }
+
+  async function getCameraRecordings() {
+    const id = document.getElementById('camRecId').value.trim();
+    const limit = document.getElementById('camRecLimit').value.trim();
+    await callApi('GET', `/devices/${id}/camera/recordings${qs({ limit })}`, undefined, true);
+  }
+
+  // ======================= NOTIFICATIONS =======================
+  async function getNotifications() {
+    const limit = document.getElementById('notifLimit').value.trim();
+    await callApi('GET', `/notifications${qs({ limit })}`, undefined, true);
+  }
+
+  // ======================= WEBSOCKET (เหมือนเดิมจาก Phase 7) =======================
+  let socket = null;
+
+  function log(tag, text) {
+    const el = document.getElementById('log');
+    const time = new Date().toLocaleTimeString('th-TH');
+    const div = document.createElement('div');
+    div.className = 'entry';
+    div.innerHTML = `<span class="time">${time}</span><span class="tag ${tag}">${tag.toUpperCase()}</span>${text}`;
+    el.prepend(div);
+  }
+
+  function setWsStatus(connected, text) {
+    const el = document.getElementById('wsStatus');
+    el.className = connected ? 'connected' : 'disconnected';
+    el.textContent = '● ' + text;
+  }
+
+  function wsConnect() {
+    const url = backendUrl();
+    const token = document.getElementById('wsToken').value.trim();
+    if (!token) { alert('ใส่ access token ก่อน (login ในแท็บ Auth เพื่อขอ token อัตโนมัติ)'); return; }
+
+    if (socket) socket.disconnect();
+
+    socket = io(url, { auth: { token } });
+
+    socket.on('connect', () => {
+      setWsStatus(true, 'เชื่อมต่อสำเร็จ (socket id: ' + socket.id + ')');
+      log('system', 'เชื่อมต่อ WebSocket สำเร็จ');
+    });
+
+    socket.on('disconnect', (reason) => {
+      setWsStatus(false, 'ตัดการเชื่อมต่อ: ' + reason);
+      log('system', 'ตัดการเชื่อมต่อ: ' + reason);
+    });
+
+    socket.on('connect_error', (err) => {
+      setWsStatus(false, 'เชื่อมต่อไม่สำเร็จ: ' + err.message);
+      log('system', 'เชื่อมต่อไม่สำเร็จ (token ผิด/หมดอายุ?): ' + err.message);
+    });
+
+    socket.on('device:status', (data) => {
+      log('status', `อุปกรณ์ <b>${data.device_name}</b> (${data.device_id}) → <b>${data.status}</b>`);
+    });
+
+    socket.on('telemetry', (data) => {
+      log('telemetry', `device ${data.device_id}: <b>${data.value}${data.unit ? ' ' + data.unit : ''}</b>`);
+    });
+
+    socket.on('command:status', (data) => {
+      log('command', `device ${data.device_id}: คำสั่ง "${data.action}" → <b>${data.status}</b>`);
+    });
+
+    socket.on('rule:triggered', (data) => {
+      log('rule', `Rule "${data.rule_name ?? data.rule_id}" สั่ง "${data.action}" ไปที่ ${data.target_device_id}`);
+    });
+  }
+
+  function wsDisconnect() {
+    if (socket) { socket.disconnect(); socket = null; }
+  }
+
+  function subscribeDevice() {
+    const deviceId = document.getElementById('deviceId').value.trim();
+    if (!socket || !socket.connected) { alert('เชื่อมต่อ WebSocket ก่อน'); return; }
+    if (!deviceId) { alert('ใส่ device_id ก่อน'); return; }
+    socket.emit('subscribe:device', deviceId, (ack) => log('system', 'subscribe แล้ว: ' + JSON.stringify(ack)));
+  }
+
+  function unsubscribeDevice() {
+    const deviceId = document.getElementById('deviceId').value.trim();
+    if (!socket || !socket.connected) return;
+    socket.emit('unsubscribe:device', deviceId, (ack) => log('system', 'unsubscribe แล้ว: ' + JSON.stringify(ack)));
+  }
+</script>
+</body>
+</html>

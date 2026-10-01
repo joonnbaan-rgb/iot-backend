@@ -1,0 +1,51 @@
+{
+  "name": "iot-backend",
+  "version": "0.1.0",
+  "description": "Backend สำหรับระบบ IoT ควบคุมเซนเซอร์ กล้อง IP และอุปกรณ์ไฟฟ้า",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:generate": "npm run typeorm -- migration:generate -d src/config/data-source.ts",
+    "migration:run": "npm run typeorm -- migration:run -d src/config/data-source.ts",
+    "migration:revert": "npm run typeorm -- migration:revert -d src/config/data-source.ts",
+    "simulate": "node scripts/simulate-sensor.js",
+    "simulate:actuator": "node scripts/simulate-actuator.js",
+    "simulate:camera-clip": "node scripts/simulate-camera-clip.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.3.0",
+    "@nestjs/config": "^3.2.0",
+    "@nestjs/core": "^10.3.0",
+    "@nestjs/jwt": "^10.2.0",
+    "@nestjs/platform-express": "^10.3.0",
+    "@nestjs/platform-socket.io": "^10.3.0",
+    "@nestjs/schedule": "^4.0.1",
+    "@nestjs/throttler": "^5.1.2",
+    "@nestjs/typeorm": "^10.0.1",
+    "@nestjs/websockets": "^10.3.0",
+    "bcrypt": "^5.1.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "dotenv": "^16.4.1",
+    "minio": "^7.1.3",
+    "mqtt": "^5.3.5",
+    "pg": "^8.11.3",
+    "prom-client": "^15.1.3",
+    "reflect-metadata": "^0.2.1",
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.7.4",
+    "typeorm": "^0.3.19"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.3.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20.11.5",
+    "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,9 @@
+@"
+node_modules/
+dist/
+.env
+*.log
+backups/
+phase8/nginx/certs/*.crt
+phase8/nginx/certs/*.key
+"@ | Out-File -Encoding utf8 .gitignore

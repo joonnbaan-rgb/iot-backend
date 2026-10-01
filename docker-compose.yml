@@ -1,0 +1,145 @@
+version: "3.8"
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: iot-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: iot
+      POSTGRES_PASSWORD: iot_password
+      POSTGRES_DB: iot_backend
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U iot -d iot_backend" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: iot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  emqx:
+    image: emqx/emqx:5.4.1
+    container_name: iot-emqx
+    restart: unless-stopped
+    ports:
+      - "1883:1883" # MQTT
+      - "8083:8083" # MQTT over WebSocket
+      - "18083:18083" # Dashboard (login: admin / public)
+    environment:
+      EMQX_NAME: emqx
+      EMQX_HOST: node1.emqx.io
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: iot-mediamtx
+    restart: unless-stopped
+    ports:
+      - "8554:8554" # RTSP
+      - "8888:8888" # HLS (เล่นผ่าน browser)
+      - "8889:8889" # WebRTC (เล่นผ่าน browser, latency ต่ำกว่า HLS)
+      - "9997:9997" # HTTP control API (ใช้เพิ่ม/ลบ path จาก backend)
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml
+      - ./recordings:/recordings # bind mount ธรรมดา ให้ backend local dev เข้าถึงไฟล์เดียวกันได้ตรงๆ
+
+  minio:
+    # MinIO ถอด image ออกจาก Docker Hub (ต.ค. 2025) และล็อก quay.io ไม่ให้ pull แบบ anonymous อีก (24 ก.ย. 2026)
+    # ใช้ mirror จากชุมชนที่ยังอัปเดตและดึงได้แบบไม่ต้อง login แทน
+    image: ghcr.io/coollabsio/minio:latest
+    container_name: iot-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000" # S3-compatible API
+      - "9001:9001" # Web console
+    volumes:
+      - minio_data:/data
+    # หมายเหตุ: ไม่ใส่ healthcheck แบบ curl เพราะ image นี้ไม่มี curl ติดตั้งมาให้
+    # ตรวจสอบว่าพร้อมใช้งานได้จาก backend log ตอน start (จะ log ว่าเชื่อมต่อ/สร้าง bucket สำเร็จ)
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iot-backend
+    restart: unless-stopped
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      emqx:
+        condition: service_started
+      mediamtx:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./recordings:/recordings # ต้อง mount path เดียวกับ mediamtx เพื่อให้ backend อ่านไฟล์คลิปได้
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: iot-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./phase8/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: iot-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+  nginx:
+    image: nginx:alpine
+    container_name: iot-nginx
+    restart: unless-stopped
+    volumes:
+      - ./phase8/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./phase8/nginx/certs:/etc/nginx/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  timescale_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:

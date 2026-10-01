@@ -1,0 +1,47 @@
+# ====== เพิ่มส่วนนี้เข้าไปใน docker-compose.yml เดิม (ใต้ services: ที่มีอยู่แล้ว) ======
+# คัดลอก service ด้านล่างนี้ไปวางต่อท้าย services: ของไฟล์ docker-compose.yml เดิม
+# และคัดลอกส่วน volumes: ไปรวมกับ volumes: เดิม (ถ้ามี) หรือเพิ่มท้ายไฟล์
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: iot-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./phase8/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: iot-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+  nginx:
+    image: nginx:alpine
+    container_name: iot-nginx
+    restart: unless-stopped
+    volumes:
+      - ./phase8/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./phase8/nginx/certs:/etc/nginx/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  prometheus_data:
+  grafana_data:

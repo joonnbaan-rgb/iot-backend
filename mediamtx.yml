@@ -1,0 +1,40 @@
+###############################################
+# ค่าคอนฟิกพื้นฐานของ MediaMTX สำหรับ IoT backend
+# path ของกล้องแต่ละตัวถูกเพิ่ม/ลบแบบ dynamic ผ่าน control API
+# โดย CamerasService (ไม่ได้ hardcode ไว้ในไฟล์นี้)
+###############################################
+
+# เปิด HTTP control API ให้ backend เรียกเพิ่ม/ลบ path ได้ (ใช้ตอน PUT /devices/:id/camera)
+api: yes
+apiAddress: :9997
+
+# MediaMTX เปิด auth เป็นค่า default ตั้งแต่เวอร์ชันหลังๆ
+# บล็อกนี้อนุญาตให้ทุกคนเรียก API/publish/read ได้แบบไม่ต้อง login
+# ⚠️ ใช้ได้เฉพาะ local dev เท่านั้น ห้ามใช้ config นี้ตอน deploy จริง (ดู Phase 8: Hardening)
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: api
+      - action: read
+      - action: publish
+      - action: playback
+
+# RTSP server (กล้องหรือ relay อื่นสามารถ publish เข้ามาที่นี่ได้ด้วยถ้าต้องการ)
+rtsp: yes
+rtspAddress: :8554
+
+# HLS - เล่นผ่าน <video> tag ธรรมดาในเว็บได้เลย รองรับ browser ทุกตัว แต่ latency สูงกว่า WebRTC
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigin: '*'
+
+# WebRTC - latency ต่ำ เหมาะกับดูสดแบบ real-time มากกว่า
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigin: '*'
+
+# path เริ่มต้น (ยังไม่ได้ผูกกล้องจริง) เพิ่ม/แก้ผ่าน API ตอน runtime
+paths:
+  all_others:
