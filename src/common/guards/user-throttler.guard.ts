@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable, TooManyRequestsException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 
 /**
  * Rate limit แยกตาม "ผู้ใช้ที่ login แล้ว" (user id จาก JWT) แทนที่จะนับรวมตาม IP
@@ -44,8 +44,9 @@ export class UserThrottlerGuard implements CanActivate {
     }
 
     if (bucket.count >= this.limit) {
-      throw new TooManyRequestsException(
+      throw new HttpException(
         `คุณส่ง request เกินโควตา (${this.limit} ครั้ง/นาทีต่อผู้ใช้) กรุณาลองใหม่ภายหลัง`,
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
