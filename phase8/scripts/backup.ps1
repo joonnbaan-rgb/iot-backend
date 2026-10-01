@@ -18,8 +18,8 @@ Write-Host "==> สำรองข้อมูลไปที่: $backupDir"
 # --- 1) Dump ฐานข้อมูล TimescaleDB/Postgres ---
 Write-Host "==> กำลัง dump ฐานข้อมูล (pg_dump)..."
 $dbContainer = "iot-timescaledb"
-$dbUser = "postgres"
-$dbName = "iot"
+$dbUser = "iot"
+$dbName = "iot_backend"
 
 $dumpFile = Join-Path $backupDir "db_dump.sql"
 docker exec $dbContainer pg_dump -U $dbUser -F p -d $dbName > $dumpFile
