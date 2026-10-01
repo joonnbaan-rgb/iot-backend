@@ -1,4 +1,4 @@
-# สร้าง self-signed certificate สำหรับ dev/test (ใช้ OpenSSL ที่มากับ Git for Windows หรือ Docker Desktop)
+﻿# สร้าง self-signed certificate สำหรับ dev/test (ใช้ OpenSSL ที่มากับ Git for Windows หรือ Docker Desktop)
 # รันจาก: C:\Projects\iot-backend\phase8\nginx\
 #
 # วิธีที่ 1: ถ้ามี openssl ใน PATH (Git for Windows มักมีให้)

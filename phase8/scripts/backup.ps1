@@ -1,4 +1,4 @@
-# Backup script สำหรับ IoT Backend
+﻿# Backup script สำหรับ IoT Backend
 # - Dump ฐานข้อมูล TimescaleDB (pg_dump ผ่าน docker exec)
 # - สำรอง MinIO data volume (tar ผ่าน alpine container ชั่วคราว ไม่ต้องพึ่ง mc CLI)
 #
