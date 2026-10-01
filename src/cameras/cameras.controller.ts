@@ -1,8 +1,11 @@
 import { Body, Controller, Get, Param, Put, Query } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { CamerasService } from './cameras.service';
 import { RecordingsService } from './recordings.service';
 import { SetCameraSourceDto } from './dto/set-camera-source.dto';
 
+// ทุก endpoint ในนี้ต้อง login จึงใช้ UserThrottlerGuard (แยกตาม user) แทน IP-based guard
+@SkipThrottle()
 @Controller('devices/:deviceId/camera')
 export class CamerasController {
   constructor(

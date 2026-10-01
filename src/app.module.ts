@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
+import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
 
 @Module({
   imports: [
@@ -47,10 +48,13 @@ import { MetricsInterceptor } from './metrics/metrics.interceptor';
     MetricsModule,
   ],
   providers: [
-    // ลำดับสำคัญ: rate limit ก่อน -> ตรวจ JWT -> ตรวจ role
+    // ลำดับสำคัญ: rate limit ตาม IP (คุ้มครอง endpoint สาธารณะ เช่น login) ->
+    // ตรวจ JWT (ทำให้ req.user พร้อมใช้) -> ตรวจ role -> rate limit ตาม user
+    // (สำหรับ endpoint ที่ login แล้วและถูก @SkipThrottle() ออกจากตัวแรก)
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: UserThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor }
   ],
 })

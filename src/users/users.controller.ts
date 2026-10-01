@@ -1,9 +1,12 @@
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { UsersService } from './users.service';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from './entities/user.entity';
 
+// ทุก endpoint ในนี้ต้อง login จึงใช้ UserThrottlerGuard (แยกตาม user) แทน IP-based guard
+@SkipThrottle()
 @Controller('users')
 @Roles(UserRole.ADMIN) // ทุก endpoint ในนี้ admin เท่านั้นที่เข้าได้
 export class UsersController {

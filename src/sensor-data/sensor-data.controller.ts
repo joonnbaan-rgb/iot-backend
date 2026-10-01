@@ -1,6 +1,9 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { SensorDataService } from './sensor-data.service';
 
+// ทุก endpoint ในนี้ต้อง login จึงใช้ UserThrottlerGuard (แยกตาม user) แทน IP-based guard
+@SkipThrottle()
 @Controller('devices/:deviceId/telemetry')
 export class SensorDataController {
   constructor(private readonly sensorDataService: SensorDataService) {}
