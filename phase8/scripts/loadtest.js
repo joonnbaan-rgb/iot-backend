@@ -62,7 +62,8 @@ export function setup() {
     );
   }
 
-  const token = JSON.parse(loginRes.body).accessToken;
+  // หมายเหตุ: API ตอบกลับด้วย field ชื่อ access_token (snake_case) ไม่ใช่ accessToken
+  const token = JSON.parse(loginRes.body).access_token;
   return { token };
 }
 
