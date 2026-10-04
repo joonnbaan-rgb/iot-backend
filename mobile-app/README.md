@@ -120,9 +120,59 @@ Socket events ที่แอปฟัง: `device:status`, `telemetry` (ต้�
 - Push notification บนมือถือเอง (ปัจจุบัน backend แจ้งเตือนผ่าน Telegram เท่านั้น)
 - หน้าจอจัดการสิทธิ์ผู้ใช้คนอื่น (`PATCH /users/:id/role`, admin only)
 
-## Build เป็นไฟล์ติดตั้งจริง (APK/IPA)
+## Build เป็น APK สำหรับทดสอบ (ไม่ต้องใช้ Expo Go)
 
-โปรเจกต์นี้ตั้งค่าไว้สำหรับรันผ่าน Expo Go ระหว่างพัฒนา หากต้องการ build เป็นไฟล์
-ติดตั้งจริงสำหรับแจกจ่าย แนะนำใช้ [EAS Build](https://docs.expo.dev/build/introduction/)
-(`npx eas build --platform android` เป็นต้น) ซึ่งต้องมีบัญชี Expo และตั้งค่า
-`eas.json` เพิ่มเติม — ไม่ได้รวมไว้ในรอบนี้
+โปรเจกต์ตั้งค่า [EAS Build](https://docs.expo.dev/build/introduction/) ไว้ให้แล้ว
+(ดู `eas.json`, profile `preview` จะ build เป็นไฟล์ `.apk` ติดตั้งตรง — ไม่ใช่ `.aab`
+ที่ใช้ขึ้น Play Store) วิธีที่ build จริงบนเครื่องโดย **ไม่ต้องติดตั้ง Android Studio/SDK**
+เพราะ EAS build บน server ของ Expo ให้
+
+### 1. ตรวจสอบ/แก้ `.env` ให้เป็น IP จริงของ backend ก่อน build
+
+**สำคัญ**: ค่าใน `EXPO_PUBLIC_API_BASE_URL` / `EXPO_PUBLIC_WS_URL` จะถูก "ฝัง" เข้าไป
+ในตัว APK ตอน build เลย (ไม่ใช่อ่านจากเครื่องที่รันตอนหลังแบบ `expo start`) ถ้าแก้ IP
+backend ทีหลังต้อง build ใหม่เสมอ ดังนั้นก่อน build ให้เปิด `.env` เช็คว่า IP ถูกต้อง
+และมือถือที่จะติดตั้ง APK ต้องอยู่วง WiFi เดียวกับเครื่อง backend ตอนทดสอบด้วย
+
+### 2. ติดตั้งและ login EAS CLI (ครั้งแรกครั้งเดียว)
+
+```powershell
+cd mobile-app
+npx eas-cli login
+```
+
+ถ้ายังไม่มีบัญชี Expo ให้สมัครฟรีที่ https://expo.dev/signup ก่อน
+
+### 3. เชื่อมโปรเจกต์กับ EAS (ครั้งแรกครั้งเดียว)
+
+```powershell
+npx eas-cli init
+```
+
+คำสั่งนี้จะสร้างโปรเจกต์บน expo.dev ให้และเติม `extra.eas.projectId` ใน `app.json`
+ให้อัตโนมัติ (ตอบ "y" เมื่อถามว่าจะสร้างโปรเจกต์ใหม่ไหม)
+
+### 4. สั่ง build APK
+
+```powershell
+npx eas-cli build --platform android --profile preview
+```
+
+ใช้เวลาประมาณ 10-20 นาที (build บน cloud ของ Expo ไม่ใช่เครื่องเรา) เสร็จแล้วจะได้
+ลิงก์ดาวน์โหลด `.apk` ในเทอร์มินัล (และดูย้อนหลังได้ที่ https://expo.dev ภายใต้โปรเจกต์นี้)
+
+### 5. ติดตั้งบนมือถือ Android
+
+ดาวน์โหลดไฟล์ `.apk` จากลิงก์ที่ได้ไปไว้ในมือถือ (เช่น ส่งผ่าน LINE ตัวเองหรือ Google
+Drive) แล้วเปิดไฟล์เพื่อติดตั้ง — Android จะเตือนว่าเป็นแอปนอก Play Store
+("Install unknown app") ให้กด "อนุญาต"/"ติดตั้งแบบนี้" ได้เลยเพราะเป็น build ของเราเอง
+
+> บัญชี Expo ฟรีมีโควตา build จำกัดต่อเดือน (ดูโควตาปัจจุบันได้ที่ expo.dev) ถ้า build
+> บ่อย ๆ ระหว่างพัฒนา แนะนำใช้ `npx expo start` + Expo Go ตามปกติ แล้วค่อย build เป็น
+> APK ตอนอยากทดสอบบนเครื่องจริงแบบไม่ง้อ Metro server
+
+### iOS
+
+Build เป็น `.ipa` ทำได้เหมือนกัน (`--platform ios`) แต่ต้องมีบัญชี Apple Developer
+($99/ปี) และติดตั้งผ่าน TestFlight หรือลงทะเบียน device ไว้ล่วงหน้า — ซับซ้อนกว่า
+Android มาก ถ้าแค่ต้องการทดสอบเร็ว ๆ แนะนำใช้ Expo Go บน iOS แทนตามที่อธิบายไว้ด้านบน

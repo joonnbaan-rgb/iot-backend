@@ -4,19 +4,27 @@
     "slug": "iot-backend-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "backgroundColor": "#0f172a"
+      "image": "./assets/splash-icon.png",
+      "backgroundColor": "#0f172a",
+      "resizeMode": "contain"
     },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.iotbackend.mobile"
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f172a"
       },
       "package": "com.iotbackend.mobile"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }
