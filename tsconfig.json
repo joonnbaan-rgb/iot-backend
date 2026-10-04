@@ -18,5 +18,5 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": false
   },
-  "exclude": ["node_modules", "dist", "phase8"]
+  "exclude": ["node_modules", "dist", "phase8", "mobile-app"]
 }
