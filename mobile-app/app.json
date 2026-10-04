@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "IoT Backend",
+    "slug": "iot-backend-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.iotbackend.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f172a"
+      },
+      "package": "com.iotbackend.mobile"
+    }
+  }
+}
