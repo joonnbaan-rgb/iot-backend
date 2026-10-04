@@ -120,59 +120,95 @@ Socket events ที่แอปฟัง: `device:status`, `telemetry` (ต้�
 - Push notification บนมือถือเอง (ปัจจุบัน backend แจ้งเตือนผ่าน Telegram เท่านั้น)
 - หน้าจอจัดการสิทธิ์ผู้ใช้คนอื่น (`PATCH /users/:id/role`, admin only)
 
-## Build เป็น APK สำหรับทดสอบ (ไม่ต้องใช้ Expo Go)
+## Build เป็น APK สำหรับทดสอบ
+
+มีสองทาง: **build local ด้วย Android Studio** (ไม่ต้องมีบัญชี Expo/คลาวด์ ฟรี 100%
+แต่ต้องติดตั้ง Android Studio ก่อนครั้งแรก) หรือ **EAS Build** (build บน cloud ของ
+Expo ไม่ต้องลง Android Studio แต่ต้องสมัครบัญชี Expo ฟรี — ดูหัวข้อถัดไป)
+
+**สำคัญก่อน build ทั้งสองทาง**: ค่าใน `.env` (`EXPO_PUBLIC_API_BASE_URL` /
+`EXPO_PUBLIC_WS_URL`) จะถูก "ฝัง" เข้าไปในตัว APK ตอน build เลย ถ้าแก้ IP backend
+ทีหลังต้อง build ใหม่เสมอ และมือถือที่ติดตั้ง APK ต้องอยู่วง WiFi เดียวกับเครื่อง
+backend ตอนทดสอบด้วย
+
+### ทางที่ 1: Build local ด้วย Android Studio (แนะนำถ้าไม่อยากสมัครบัญชี Expo)
+
+**1. ติดตั้ง Android Studio** (ครั้งแรกครั้งเดียว)
+
+ดาวน์โหลดจาก https://developer.android.com/studio แล้วติดตั้งตามปกติ ตอนเปิดครั้งแรก
+เลือก "Standard" setup — มันจะติดตั้ง Android SDK, Platform Tools, และ emulator ให้
+อัตโนมัติ (ใช้เวลาสักพัก ไฟล์ใหญ่หลาย GB)
+
+**2. ตั้งค่า environment variable** (ครั้งแรกครั้งเดียว)
+
+เปิด "Edit environment variables for your account" ใน Windows Search แล้วเพิ่ม:
+
+- ตัวแปรใหม่ `ANDROID_HOME` = `C:\Users\<ชื่อผู้ใช้>\AppData\Local\Android\Sdk`
+  (เช็ค path จริงได้ใน Android Studio: More Actions > SDK Manager > ดูช่อง
+  "Android SDK Location" ด้านบน)
+- แก้ตัวแปร `Path` เพิ่ม 2 บรรทัด:
+  - `%ANDROID_HOME%\platform-tools`
+  - `%ANDROID_HOME%\emulator`
+
+ปิด-เปิด PowerShell ใหม่หลังตั้งค่าเสร็จ แล้วเช็คว่าใช้ได้ด้วย `adb --version`
+
+**3. สร้างโปรเจกต์ native Android** (รันครั้งแรก หรือรันใหม่ถ้าแก้ native config)
+
+```powershell
+cd C:\Projects\iot-backend\mobile-app
+npx expo prebuild --platform android
+```
+
+คำสั่งนี้สร้างโฟลเดอร์ `android/` (โค้ด native จริง ไม่ต้องแก้เอง) จาก `app.json`
+ของเรา — โฟลเดอร์นี้ไม่ได้ commit เข้า git (มีใน `.gitignore` แล้ว) เพราะสร้างใหม่ได้
+ทุกครั้งจากคำสั่งเดียวกันนี้
+
+**4. Build + ติดตั้งลงเครื่อง/มือถือที่เสียบสาย USB โดยตรง** (ง่ายที่สุด)
+
+เสียบมือถือ Android เข้าคอมด้วยสาย USB แล้วเปิด **USB debugging** ในมือถือก่อน
+(Settings > About phone > กด "Build number" รัว ๆ 7 ครั้งเพื่อปลด Developer options
+> เปิด USB debugging) เช็คว่าเครื่องเห็นมือถือด้วย `adb devices` แล้วรัน:
+
+```powershell
+npx expo run:android --variant release
+```
+
+คำสั่งนี้ build แล้วติดตั้ง + เปิดแอปบนมือถือที่เสียบอยู่ให้อัตโนมัติเลย (ใช้เวลา
+ประมาณ 5-15 นาทีตอน build ครั้งแรก ครั้งถัดไปเร็วขึ้นมากเพราะ cache ไว้)
+
+**5. หรือถ้าอยากได้ไฟล์ `.apk` เก็บไว้ส่งต่อ/ติดตั้งทีหลัง**
+
+```powershell
+cd android
+.\gradlew assembleDebug
+```
+
+ไฟล์ APK จะอยู่ที่ `android\app\build\outputs\apk\debug\app-debug.apk` — ก๊อปปี้ไป
+ไว้ในมือถือ (ส่งผ่าน LINE ตัวเอง, Google Drive, หรือลาก-วางผ่านสาย USB) แล้วเปิดไฟล์
+เพื่อติดตั้ง (Android จะเตือน "Install unknown app" กด "อนุญาต"/"ติดตั้งแบบนี้" ได้เลย)
+
+> `assembleDebug` ไม่ต้องตั้งค่า signing key ใด ๆ เหมาะกับทดสอบเองโดยเฉพาะ ถ้าจะแจก
+> ให้คนอื่นทดสอบเป็นวงกว้างค่อยทำ `assembleRelease` ซึ่งต้องสร้าง keystore ก่อน (ดู
+> https://reactnative.dev/docs/signed-apk-android)
+
+### ทางที่ 2: EAS Build (build บน cloud ของ Expo ไม่ต้องลง Android Studio)
 
 โปรเจกต์ตั้งค่า [EAS Build](https://docs.expo.dev/build/introduction/) ไว้ให้แล้ว
-(ดู `eas.json`, profile `preview` จะ build เป็นไฟล์ `.apk` ติดตั้งตรง — ไม่ใช่ `.aab`
-ที่ใช้ขึ้น Play Store) วิธีที่ build จริงบนเครื่องโดย **ไม่ต้องติดตั้ง Android Studio/SDK**
-เพราะ EAS build บน server ของ Expo ให้
-
-### 1. ตรวจสอบ/แก้ `.env` ให้เป็น IP จริงของ backend ก่อน build
-
-**สำคัญ**: ค่าใน `EXPO_PUBLIC_API_BASE_URL` / `EXPO_PUBLIC_WS_URL` จะถูก "ฝัง" เข้าไป
-ในตัว APK ตอน build เลย (ไม่ใช่อ่านจากเครื่องที่รันตอนหลังแบบ `expo start`) ถ้าแก้ IP
-backend ทีหลังต้อง build ใหม่เสมอ ดังนั้นก่อน build ให้เปิด `.env` เช็คว่า IP ถูกต้อง
-และมือถือที่จะติดตั้ง APK ต้องอยู่วง WiFi เดียวกับเครื่อง backend ตอนทดสอบด้วย
-
-### 2. ติดตั้งและ login EAS CLI (ครั้งแรกครั้งเดียว)
+(ดู `eas.json`, profile `preview` จะได้ไฟล์ `.apk` ติดตั้งตรง) ทางนี้ต้องสมัครบัญชี
+Expo ฟรี (ไม่ผูกบัตร มีโควตา build จำกัดต่อเดือน) ที่ https://expo.dev/signup ก่อน:
 
 ```powershell
 cd mobile-app
 npx eas-cli login
-```
-
-ถ้ายังไม่มีบัญชี Expo ให้สมัครฟรีที่ https://expo.dev/signup ก่อน
-
-### 3. เชื่อมโปรเจกต์กับ EAS (ครั้งแรกครั้งเดียว)
-
-```powershell
-npx eas-cli init
-```
-
-คำสั่งนี้จะสร้างโปรเจกต์บน expo.dev ให้และเติม `extra.eas.projectId` ใน `app.json`
-ให้อัตโนมัติ (ตอบ "y" เมื่อถามว่าจะสร้างโปรเจกต์ใหม่ไหม)
-
-### 4. สั่ง build APK
-
-```powershell
+npx eas-cli init                                      # ครั้งแรกครั้งเดียว เชื่อมโปรเจกต์กับ EAS
 npx eas-cli build --platform android --profile preview
 ```
 
-ใช้เวลาประมาณ 10-20 นาที (build บน cloud ของ Expo ไม่ใช่เครื่องเรา) เสร็จแล้วจะได้
-ลิงก์ดาวน์โหลด `.apk` ในเทอร์มินัล (และดูย้อนหลังได้ที่ https://expo.dev ภายใต้โปรเจกต์นี้)
-
-### 5. ติดตั้งบนมือถือ Android
-
-ดาวน์โหลดไฟล์ `.apk` จากลิงก์ที่ได้ไปไว้ในมือถือ (เช่น ส่งผ่าน LINE ตัวเองหรือ Google
-Drive) แล้วเปิดไฟล์เพื่อติดตั้ง — Android จะเตือนว่าเป็นแอปนอก Play Store
-("Install unknown app") ให้กด "อนุญาต"/"ติดตั้งแบบนี้" ได้เลยเพราะเป็น build ของเราเอง
-
-> บัญชี Expo ฟรีมีโควตา build จำกัดต่อเดือน (ดูโควตาปัจจุบันได้ที่ expo.dev) ถ้า build
-> บ่อย ๆ ระหว่างพัฒนา แนะนำใช้ `npx expo start` + Expo Go ตามปกติ แล้วค่อย build เป็น
-> APK ตอนอยากทดสอบบนเครื่องจริงแบบไม่ง้อ Metro server
+รอประมาณ 10-20 นาที (build บน cloud ของ Expo) เสร็จแล้วได้ลิงก์ดาวน์โหลด `.apk`
+ในเทอร์มินัล ดาวน์โหลดไปลงมือถือได้เลยเหมือนทางที่ 1
 
 ### iOS
 
-Build เป็น `.ipa` ทำได้เหมือนกัน (`--platform ios`) แต่ต้องมีบัญชี Apple Developer
-($99/ปี) และติดตั้งผ่าน TestFlight หรือลงทะเบียน device ไว้ล่วงหน้า — ซับซ้อนกว่า
-Android มาก ถ้าแค่ต้องการทดสอบเร็ว ๆ แนะนำใช้ Expo Go บน iOS แทนตามที่อธิบายไว้ด้านบน
+Build เป็น `.ipa` ต้องมีบัญชี Apple Developer ($99/ปี) และติดตั้งผ่าน TestFlight
+หรือลงทะเบียน device ไว้ล่วงหน้า — ซับซ้อนกว่า Android มาก ถ้าแค่ต้องการทดสอบเร็ว ๆ
+แนะนำใช้ Expo Go บน iOS แทน (ดูหัวข้อ "เริ่มต้นใช้งาน" ด้านบน)
