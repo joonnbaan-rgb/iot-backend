@@ -51,6 +51,9 @@ export const commandsApi = {
 export const camerasApi = {
   streamUrls: (deviceId: string) =>
     apiClient.get<CameraStreamUrls>(`/devices/${deviceId}/camera/stream`).then((r) => r.data),
+  // admin เท่านั้น: ตั้ง RTSP source แล้วให้ MediaMTX ลงทะเบียน path ของกล้องนี้
+  setSource: (deviceId: string, rtspUrl: string) =>
+    apiClient.put(`/devices/${deviceId}/camera`, { rtsp_url: rtspUrl }).then((r) => r.data),
 };
 
 export const notificationsApi = {

@@ -64,7 +64,7 @@ export interface NotificationLog {
 export interface CameraStreamUrls {
   hls_url?: string;
   webrtc_url?: string;
-  [key: string]: string | undefined;
+  rtsp_source?: string | null;
 }
 
 export interface ApiErrorBody {

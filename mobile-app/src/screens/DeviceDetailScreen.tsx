@@ -13,6 +13,9 @@ import {
   type TelemetryEvent,
 } from '@/realtime/socket';
 import { Button } from '@/components/Button';
+import { CameraPlayer } from '@/components/CameraPlayer';
+import { TextField } from '@/components/TextField';
+import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { colors, radius, spacing } from '@/theme';
 import type { CameraStreamUrls, Device, DeviceCommand, SensorDataPoint } from '@/types/api';
@@ -24,6 +27,8 @@ const CHART_WIDTH = Dimensions.get('window').width - spacing.md * 2 - spacing.md
 
 export function DeviceDetailScreen({ route }: Props) {
   const { deviceId } = route.params;
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const [device, setDevice] = useState<Device | null>(null);
   const [telemetry, setTelemetry] = useState<SensorDataPoint[]>([]);
@@ -32,6 +37,8 @@ export function DeviceDetailScreen({ route }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sendingAction, setSendingAction] = useState<string | null>(null);
+  const [rtspInput, setRtspInput] = useState('rtsp://localhost:8554/webcam');
+  const [savingSource, setSavingSource] = useState(false);
 
   const load = useCallback(
     async (isRefresh = false) => {
@@ -50,6 +57,7 @@ export function DeviceDetailScreen({ route }: Props) {
           try {
             const urls = await camerasApi.streamUrls(deviceId);
             setStreamUrls(urls);
+            if (urls.rtsp_source) setRtspInput(urls.rtsp_source);
           } catch {
             setStreamUrls(null); // ยังไม่ได้ตั้งค่า rtsp source ก็ไม่เป็นไร
           }
@@ -106,6 +114,24 @@ export function DeviceDetailScreen({ route }: Props) {
       unsubscribeFromDevice(deviceId);
     };
   }, [deviceId]);
+
+  async function saveCameraSource() {
+    const url = rtspInput.trim();
+    if (!/^rtsps?:\/\//.test(url)) {
+      Alert.alert('รูปแบบไม่ถูกต้อง', 'RTSP URL ต้องขึ้นต้นด้วย rtsp:// หรือ rtsps://');
+      return;
+    }
+    setSavingSource(true);
+    try {
+      await camerasApi.setSource(deviceId, url);
+      await load(true);
+      Alert.alert('สำเร็จ', 'ตั้งค่า RTSP source แล้ว');
+    } catch (err) {
+      Alert.alert('ตั้งค่าไม่สำเร็จ', extractErrorMessage(err));
+    } finally {
+      setSavingSource(false);
+    }
+  }
 
   async function sendCommand(action: string) {
     setSendingAction(action);
@@ -222,16 +248,28 @@ export function DeviceDetailScreen({ route }: Props) {
       {device.type === 'camera' && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>สตรีมกล้อง</Text>
-          {streamUrls ? (
-            <>
-              {streamUrls.hls_url && <Text style={styles.streamUrl}>HLS: {streamUrls.hls_url}</Text>}
-              {streamUrls.webrtc_url && <Text style={styles.streamUrl}>WebRTC: {streamUrls.webrtc_url}</Text>}
-              <Text style={styles.hint}>
-                เปิดลิงก์เหล่านี้ด้วยตัวเล่นวิดีโอที่รองรับ HLS/WebRTC (เช่น เว็บแดชบอร์ด หรือแอปเล่น stream)
-              </Text>
-            </>
+          {streamUrls?.hls_url && streamUrls.rtsp_source ? (
+            <CameraPlayer hlsUrl={streamUrls.hls_url} />
           ) : (
-            <Text style={styles.emptyText}>ยังไม่ได้ตั้งค่า RTSP source ของกล้องนี้</Text>
+            <Text style={styles.emptyText}>
+              {isAdmin ? 'ยังไม่ได้ตั้งค่า RTSP source ตั้งค่าด้านล่างเพื่อเริ่มดูสด' : 'กล้องนี้ยังไม่ได้ตั้งค่า (ให้ผู้ดูแลระบบตั้งค่า)'}
+            </Text>
+          )}
+          {isAdmin && (
+            <View style={styles.sourceBox}>
+              <TextField
+                label="RTSP source (ผู้ดูแลระบบ)"
+                value={rtspInput}
+                onChangeText={setRtspInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="rtsp://localhost:8554/webcam"
+              />
+              <Text style={styles.hint}>
+                เว็บแคมของคอม: รันสคริปต์ webcam-stream.ps1 แล้วใช้ค่า rtsp://localhost:8554/webcam (MediaMTX รันอยู่ในเครื่องเดียวกับ backend)
+              </Text>
+              <Button title="บันทึกและเชื่อมต่อ" onPress={saveCameraSource} loading={savingSource} />
+            </View>
           )}
         </View>
       )}
@@ -292,7 +330,7 @@ const styles = StyleSheet.create({
   },
   historyAction: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
   historyTime: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  streamUrl: { color: colors.textSecondary, fontSize: 13, marginBottom: spacing.xs },
+  sourceBox: { marginTop: spacing.md },
   hint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xs, lineHeight: 18 },
   infoRow: {
     flexDirection: 'row',
