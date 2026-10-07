@@ -65,12 +65,15 @@ $inputArgs = @('-f', 'dshow', '-rtbufsize', '64M')
 if ($InputSize) { $inputArgs += @('-video_size', $InputSize) }
 $inputArgs += @('-i', "video=$Camera")
 
+# ffmpeg เขียนคำเตือนลง stderr ซึ่ง PowerShell 5 มองเป็น error ถ้าตั้งเป็น Stop จึงต้องปิดก่อนรัน ffmpeg
+$ErrorActionPreference = 'Continue'
+
 # ส่งใหม่อัตโนมัติถ้า ffmpeg หลุด (เช่น MediaMTX รีสตาร์ต)
 while ($true) {
   & ffmpeg -hide_banner -loglevel warning @inputArgs `
     -vf "scale=${Width}:-2,format=yuv420p" -r $Fps `
     -c:v libx264 -preset ultrafast -tune zerolatency -g ($Fps * 2) -b:v 1000k `
     -f rtsp -rtsp_transport tcp $target
-  Write-Host 'ffmpeg หยุดทำงาน จะลองเชื่อมต่อใหม่ใน 3 วินาที (Ctrl+C เพื่อออก)...' -ForegroundColor Yellow
+  Write-Host "ffmpeg หยุดทำงาน (exit code $LASTEXITCODE) จะลองเชื่อมต่อใหม่ใน 3 วินาที (Ctrl+C เพื่อออก)..." -ForegroundColor Yellow
   Start-Sleep -Seconds 3
 }
