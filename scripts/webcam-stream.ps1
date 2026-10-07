@@ -38,7 +38,7 @@ foreach ($line in $raw) {
   if ($line -match 'DirectShow audio devices') { $inVideoSection = $false; continue }
   if ($inVideoSection -and $line -match '"([^"]+)"' -and $line -notmatch 'Alternative name') { $cameras += $Matches[1] }
 }
-$cameras = $cameras | Select-Object -Unique
+$cameras = @($cameras | Select-Object -Unique)   # ครอบด้วย @() กันกรณีมีกล้องตัวเดียวแล้วกลายเป็น string
 
 if ($ListDevices) {
   if ($cameras.Count -eq 0) { Write-Host 'ไม่พบกล้อง' } else { $cameras | ForEach-Object { Write-Host " - $_" } }
