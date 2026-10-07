@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   ส่งภาพจากเว็บแคมของคอม (Windows) เข้า MediaMTX เป็นสตรีม RTSP ชื่อ path "webcam"
 
