@@ -10,14 +10,15 @@
 .EXAMPLE
   .\scripts\webcam-stream.ps1                     # เลือกกล้องตัวแรกอัตโนมัติ
   .\scripts\webcam-stream.ps1 -ListDevices        # แสดงรายชื่อกล้อง
-  .\scripts\webcam-stream.ps1 -Camera "Integrated Camera" -Fps 15 -Size 640x480
+  .\scripts\webcam-stream.ps1 -Camera "Integrated Camera" -Width 480 -Fps 10
 #>
 param(
   [string]$Camera = '',
   [string]$Path = 'webcam',
   [string]$Server = 'localhost:8554',
-  [int]$Fps = 15,
-  [string]$Size = '640x480',
+  [int]$Fps = 15,        # fps ของสตรีมที่ส่งออก
+  [int]$Width = 640,     # ความกว้างของสตรีมที่ส่งออก (ย่อภาพให้ ความสูงคำนวณตามสัดส่วน)
+  [string]$InputSize = '',   # ถ้าจำเป็นต้องบังคับโหมดของกล้อง เช่น 1280x720 (ปกติปล่อยว่าง)
   [switch]$ListDevices
 )
 
@@ -55,15 +56,20 @@ if (-not $Camera) {
 
 $target = "rtsp://$Server/$Path"
 Write-Host "กล้อง : $Camera"
-Write-Host "ส่งไป : $target  ($Size @ ${Fps}fps)"
+Write-Host "ส่งไป : $target  (กว้าง ${Width}px @ ${Fps}fps)"
 Write-Host 'กด Ctrl+C เพื่อหยุด'
 Write-Host ''
 
+# ปล่อยให้กล้องเลือกโหมดเอง (บังคับขนาด/fps ที่กล้องไม่รองรับจะเปิดไม่ได้) แล้วย่อภาพ+ปรับ fps ตอนเข้ารหัส
+$inputArgs = @('-f', 'dshow', '-rtbufsize', '64M')
+if ($InputSize) { $inputArgs += @('-video_size', $InputSize) }
+$inputArgs += @('-i', "video=$Camera")
+
 # ส่งใหม่อัตโนมัติถ้า ffmpeg หลุด (เช่น MediaMTX รีสตาร์ต)
 while ($true) {
-  & ffmpeg -hide_banner -loglevel warning `
-    -f dshow -rtbufsize 64M -framerate $Fps -video_size $Size -i "video=$Camera" `
-    -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g ($Fps * 2) -b:v 1000k `
+  & ffmpeg -hide_banner -loglevel warning @inputArgs `
+    -vf "scale=${Width}:-2,format=yuv420p" -r $Fps `
+    -c:v libx264 -preset ultrafast -tune zerolatency -g ($Fps * 2) -b:v 1000k `
     -f rtsp -rtsp_transport tcp $target
   Write-Host 'ffmpeg หยุดทำงาน จะลองเชื่อมต่อใหม่ใน 3 วินาที (Ctrl+C เพื่อออก)...' -ForegroundColor Yellow
   Start-Sleep -Seconds 3
