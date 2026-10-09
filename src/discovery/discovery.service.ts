@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as net from 'net';
+import * as http from 'http';
 import { Device } from '../devices/entities/device.entity';
 
 export type DiscoveredKind = 'tasmota' | 'sonoff_diy' | 'ip_camera';
@@ -76,14 +77,69 @@ export class DiscoveryService {
     });
   }
 
-  private async httpJson(url: string, init?: RequestInit, timeoutMs = 2000): Promise<any | null> {
-    try {
-      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
-    }
+  /** เรียก HTTP ด้วยโมดูล http ของ Node (จัดการ error/timeout เองทุกจุด ไม่พึ่ง fetch) แล้วแปลงผลเป็น JSON */
+  private httpJson(
+    host: string,
+    port: number,
+    path: string,
+    method: 'GET' | 'POST' = 'GET',
+    body?: string,
+    timeoutMs = 2000,
+  ): Promise<any | null> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (v: any | null) => {
+        if (settled) return;
+        settled = true;
+        resolve(v);
+      };
+      try {
+        const req = http.request(
+          {
+            host,
+            port,
+            path,
+            method,
+            timeout: timeoutMs,
+            headers: body ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } : {},
+          },
+          (res) => {
+            if (res.statusCode !== 200) {
+              res.resume();
+              return finish(null);
+            }
+            const chunks: Buffer[] = [];
+            let size = 0;
+            res.on('data', (c: Buffer) => {
+              size += c.length;
+              if (size > 64 * 1024) {
+                req.destroy(); // หน้าเว็บใหญ่เกินไป ไม่ใช่ API ของอุปกรณ์
+                return finish(null);
+              }
+              chunks.push(c);
+            });
+            res.on('end', () => {
+              try {
+                finish(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+              } catch {
+                finish(null);
+              }
+            });
+            res.on('error', () => finish(null));
+            res.on('aborted', () => finish(null));
+          },
+        );
+        req.on('timeout', () => {
+          req.destroy();
+          finish(null);
+        });
+        req.on('error', () => finish(null));
+        if (body) req.write(body);
+        req.end();
+      } catch {
+        finish(null);
+      }
+    });
   }
 
   private rtspProbe(host: string, timeoutMs = 1500): Promise<boolean> {
@@ -116,7 +172,7 @@ export class DiscoveryService {
     ]);
 
     if (p80) {
-      const j = await this.httpJson(`http://${ip}/cm?cmnd=Status%200`);
+      const j = await this.httpJson(ip, 80, '/cm?cmnd=Status%200');
       if (j && (j.Status || j.StatusNET)) {
         const names: string[] = j.Status?.FriendlyName ?? [];
         const name = j.Status?.DeviceName || names[0] || `Tasmota ${ip}`;
@@ -134,11 +190,7 @@ export class DiscoveryService {
     }
 
     if (p8081) {
-      const j = await this.httpJson(`http://${ip}:8081/zeroconf/info`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ deviceid: '', data: {} }),
-      });
+      const j = await this.httpJson(ip, 8081, '/zeroconf/info', 'POST', JSON.stringify({ deviceid: '', data: {} }));
       if (j && j.data) {
         const id: string = j.data.deviceid ?? '';
         found.push({
@@ -180,7 +232,11 @@ export class DiscoveryService {
       const worker = async () => {
         while (queue.length) {
           const ip = queue.shift()!;
-          results.push(...(await this.probeHost(ip)));
+          try {
+            results.push(...(await this.probeHost(ip)));
+          } catch (err) {
+            this.logger.warn(`ตรวจ ${ip} ไม่สำเร็จ: ${(err as Error).message}`);
+          }
         }
       };
       await Promise.all(Array.from({ length: 64 }, worker));
