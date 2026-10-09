@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 're
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { devicesApi, groupsApi } from '@/api/endpoints';
 import { extractErrorMessage } from '@/api/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { DevicePicker } from '@/components/DevicePicker';
@@ -17,6 +18,7 @@ export function GroupEditScreen({ route, navigation }: Props) {
   const [name, setName] = useState('');
   const [devices, setDevices] = useState<Device[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -25,7 +27,7 @@ export function GroupEditScreen({ route, navigation }: Props) {
       try {
         const all = await devicesApi.list();
         // ในกลุ่มใส่ได้เฉพาะอุปกรณ์ที่เราเป็นเจ้าของ
-        setDevices(all.filter((d) => d.access_level === 'owner'));
+        setDevices(all.filter((d) => d.owner_id === user?.id));
         if (groupId) {
           const groups = await groupsApi.list();
           const g = groups.find((x) => x.id === groupId);
@@ -40,7 +42,7 @@ export function GroupEditScreen({ route, navigation }: Props) {
         setLoading(false);
       }
     })();
-  }, [groupId]);
+  }, [groupId, user?.id]);
 
   async function save() {
     if (!name.trim()) {

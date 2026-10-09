@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 're
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { devicesApi, groupsApi, sharesApi } from '@/api/endpoints';
 import { extractErrorMessage } from '@/api/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { DevicePicker } from '@/components/DevicePicker';
@@ -25,6 +26,7 @@ export function ShareCreateScreen({ route, navigation }: Props) {
   const [groups, setGroups] = useState<DeviceGroup[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set(presetDevice ? [presetDevice] : []));
   const [groupId, setGroupId] = useState<string | undefined>(presetGroup);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -32,7 +34,7 @@ export function ShareCreateScreen({ route, navigation }: Props) {
     (async () => {
       try {
         const [all, gs] = await Promise.all([devicesApi.list(), groupsApi.list()]);
-        setDevices(all.filter((d) => d.access_level === 'owner'));
+        setDevices(all.filter((d) => d.owner_id === user?.id));
         setGroups(gs);
       } catch (err) {
         Alert.alert('โหลดข้อมูลไม่สำเร็จ', extractErrorMessage(err));
@@ -40,7 +42,7 @@ export function ShareCreateScreen({ route, navigation }: Props) {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [user?.id]);
 
   async function submit() {
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) {

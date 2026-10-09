@@ -12,6 +12,7 @@ import {
   type CommandStatusEvent,
   type TelemetryEvent,
 } from '@/realtime/socket';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/Button';
 import { CameraPlayer } from '@/components/CameraPlayer';
 import { TextField } from '@/components/TextField';
@@ -38,6 +39,7 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
   const [savingSource, setSavingSource] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // เจ้าของอุปกรณ์หรือ admin เท่านั้นที่แก้ไข/ลบ/ตั้งค่ากล้องได้
+  const { user } = useAuth();
   const canControl = device?.access_level !== 'view'; // view = ดูอย่างเดียว
   const canManage = device?.access_level === 'owner' || device?.access_level === 'admin';
 
@@ -302,7 +304,7 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      {device.access_level === 'owner' && (
+      {canManage && device.owner_id === user?.id && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>แชร์</Text>
           <Button
