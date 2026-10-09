@@ -95,6 +95,18 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    # ค่าใน .env อาจตั้งไว้สำหรับรัน backend แบบ local (localhost) ตรงนี้ override เป็นชื่อ service
+    # ใน docker network เพื่อให้ไฟล์ .env ไฟล์เดียวใช้ได้ทั้งสองแบบ (environment ชนะ env_file)
+    environment:
+      DB_HOST: timescaledb
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MQTT_URL: mqtt://emqx:1883
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      RECORDINGS_DIR: /recordings
     volumes:
       - ./src:/app/src
       - ./recordings:/recordings # ต้อง mount path เดียวกับ mediamtx เพื่อให้ backend อ่านไฟล์คลิปได้
