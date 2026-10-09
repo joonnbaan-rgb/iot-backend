@@ -1,0 +1,11 @@
+# ไม่ต้องส่งไฟล์เหล่านี้เข้า build context (เดิม ~2.3GB ทำให้ build ช้ามาก)
+node_modules
+dist
+.git
+.env
+recordings
+backups
+mobile-app
+phase8
+*.bundle
+*.log

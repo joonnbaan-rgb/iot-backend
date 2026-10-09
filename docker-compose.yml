@@ -90,7 +90,7 @@ services:
       mediamtx:
         condition: service_started
       minio:
-        condition: service_healthy
+        condition: service_started # image minio ไม่มี healthcheck ในตัว (ดูหมายเหตุที่ service minio)
     ports:
       - "3000:3000"
     env_file:
