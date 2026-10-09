@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { devicesApi } from '@/api/endpoints';
+import { devicesApi, groupsApi } from '@/api/endpoints';
 import { extractErrorMessage } from '@/api/client';
 import { getSocket, type DeviceStatusEvent } from '@/realtime/socket';
 import { DeviceCard } from '@/components/DeviceCard';
 import { Button } from '@/components/Button';
+import { Segmented } from '@/components/Segmented';
 import { colors, spacing } from '@/theme';
-import type { Device } from '@/types/api';
+import type { Device, DeviceGroup } from '@/types/api';
 import type { DevicesStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<DevicesStackParamList, 'DevicesList'>;
@@ -18,13 +19,17 @@ export function DevicesListScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<DeviceGroup[]>([]);
+  // all | mine | shared | g:{groupId}
+  const [filter, setFilter] = useState<string>('all');
 
   const load = useCallback(async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true);
     setError(null);
     try {
-      const data = await devicesApi.list();
+      const [data, gs] = await Promise.all([devicesApi.list(), groupsApi.list().catch(() => [])]);
       setDevices(data);
+      setGroups(gs);
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -52,21 +57,46 @@ export function DevicesListScreen({ navigation }: Props) {
       );
     };
 
+    const handleSharesChanged = () => load(true);
+
     socket.on('device:status', handleStatus);
+    socket.on('shares:changed', handleSharesChanged); // มีคนแชร์/ถอนสิทธิ์ -> โหลดรายการใหม่
     return () => {
       socket.off('device:status', handleStatus);
+      socket.off('shares:changed', handleSharesChanged);
     };
-  }, []);
+  }, [load]);
+
+  const isMine = (d: Device) => d.access_level === 'owner' || d.access_level === 'admin';
+  const visible = devices.filter((d) => {
+    if (filter === 'mine') return isMine(d);
+    if (filter === 'shared') return !isMine(d);
+    if (filter.startsWith('g:')) return groups.find((g) => g.id === filter.slice(2))?.device_ids.includes(d.id);
+    return true;
+  });
+  const hasShared = devices.some((d) => !isMine(d));
+  const filterOptions = [
+    { value: 'all', label: 'ทั้งหมด' },
+    ...(hasShared ? [{ value: 'mine', label: 'ของฉัน' }, { value: 'shared', label: 'แชร์ให้ฉัน' }] : []),
+    ...groups.map((g) => ({ value: `g:${g.id}`, label: g.name })),
+  ];
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>อุปกรณ์ของคุณ</Text>
-          <Text style={styles.subtitle}>{devices.length} เครื่อง</Text>
+          <Text style={styles.subtitle}>{visible.length} เครื่อง</Text>
         </View>
         <Button title="+ เพิ่มอุปกรณ์" onPress={() => navigation.navigate('AddDevice')} style={styles.addBtn} />
       </View>
+
+      <View style={styles.toolbar}>
+        <Button title="กลุ่ม" variant="secondary" onPress={() => navigation.navigate('Groups')} style={styles.toolBtn} />
+        <Button title="การแชร์" variant="secondary" onPress={() => navigation.navigate('Sharing')} style={styles.toolBtn} />
+      </View>
+
+      {filterOptions.length > 1 && <Segmented value={filter} onChange={setFilter} options={filterOptions} />}
 
       {!!error && (
         <View style={styles.errorBox}>
@@ -75,7 +105,7 @@ export function DevicesListScreen({ navigation }: Props) {
       )}
 
       <FlatList
-        data={devices}
+        data={visible}
         keyExtractor={(d) => d.id}
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}
@@ -109,6 +139,8 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700' },
   subtitle: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
+  toolbar: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  toolBtn: { flex: 1, paddingVertical: spacing.sm },
   addBtn: { paddingHorizontal: spacing.md },
   listContent: { paddingBottom: spacing.xl },
   empty: { alignItems: 'center', paddingTop: spacing.xl * 2 },

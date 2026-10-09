@@ -8,6 +8,10 @@ export type DevicesStackParamList = {
   DeviceDetail: { deviceId: string; deviceName: string };
   AddDevice: undefined;
   EditDevice: { deviceId: string };
+  Groups: undefined;
+  GroupEdit: { groupId?: string };
+  Sharing: undefined;
+  ShareCreate: { deviceId?: string; groupId?: string } | undefined;
 };
 
 export type RootTabParamList = {

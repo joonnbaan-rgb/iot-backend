@@ -38,6 +38,7 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
   const [savingSource, setSavingSource] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // เจ้าของอุปกรณ์หรือ admin เท่านั้นที่แก้ไข/ลบ/ตั้งค่ากล้องได้
+  const canControl = device?.access_level !== 'view'; // view = ดูอย่างเดียว
   const canManage = device?.access_level === 'owner' || device?.access_level === 'admin';
 
   const load = useCallback(
@@ -239,7 +240,8 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
       {device.type === 'actuator' && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>สั่งงานอุปกรณ์</Text>
-          <View style={styles.actionRow}>
+          {!canControl && <Text style={styles.emptyText}>คุณมีสิทธิ์ดูอย่างเดียว สั่งงานไม่ได้</Text>}
+          {canControl && <View style={styles.actionRow}>
             <Button
               title="เปิด"
               onPress={() => sendCommand('turn_on')}
@@ -255,7 +257,7 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
               variant="danger"
               style={styles.actionBtn}
             />
-          </View>
+          </View>}
 
           <Text style={[styles.cardTitle, styles.historyTitle]}>ประวัติคำสั่ง</Text>
           {commands.length === 0 && <Text style={styles.emptyText}>ยังไม่มีประวัติคำสั่ง</Text>}
@@ -274,7 +276,7 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
       {device.type === 'camera' && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>สตรีมกล้อง</Text>
-          {streamUrls?.hls_url && streamUrls.rtsp_source ? (
+          {streamUrls?.hls_url && (streamUrls.rtsp_source || streamUrls.source_configured) ? (
             <CameraPlayer hlsUrl={streamUrls.hls_url} />
           ) : (
             <Text style={styles.emptyText}>
@@ -300,6 +302,17 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
         </View>
       )}
 
+      {device.access_level === 'owner' && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>แชร์</Text>
+          <Button
+            title="แชร์อุปกรณ์นี้ให้บัญชีอื่น"
+            variant="secondary"
+            onPress={() => navigation.navigate('ShareCreate', { deviceId })}
+          />
+        </View>
+      )}
+
       {canManage && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>จัดการอุปกรณ์</Text>
@@ -317,6 +330,7 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>ข้อมูลอุปกรณ์</Text>
+        {!!device.owner_email && <InfoRow label="เจ้าของ" value={device.owner_email} />}
         <InfoRow label="รหัสอุปกรณ์" value={device.id} />
         <InfoRow label="สร้างเมื่อ" value={new Date(device.created_at).toLocaleString('th-TH')} />
         <InfoRow

@@ -4,6 +4,9 @@ import type {
   CameraStreamUrls,
   Device,
   DeviceCommand,
+  DeviceGroup,
+  Share,
+  SharePermission,
   NotificationLog,
   SensorDataPoint,
   User,
@@ -64,4 +67,30 @@ export const camerasApi = {
 export const notificationsApi = {
   recent: (limit?: number) =>
     apiClient.get<NotificationLog[]>('/notifications', { params: { limit } }).then((r) => r.data),
+};
+
+export const groupsApi = {
+  list: () => apiClient.get<DeviceGroup[]>('/groups').then((r) => r.data),
+  create: (body: { name: string; device_ids?: string[] }) =>
+    apiClient.post<DeviceGroup>('/groups', body).then((r) => r.data),
+  update: (id: string, body: { name?: string; device_ids?: string[] }) =>
+    apiClient.patch<DeviceGroup>(`/groups/${id}`, body).then((r) => r.data),
+  remove: (id: string) => apiClient.delete(`/groups/${id}`).then(() => undefined),
+};
+
+export interface CreateSharePayload {
+  email: string;
+  permission: SharePermission;
+  scope: 'all' | 'devices' | 'group';
+  device_ids?: string[];
+  group_id?: string;
+}
+
+export const sharesApi = {
+  outgoing: () => apiClient.get<Share[]>('/shares/outgoing').then((r) => r.data),
+  incoming: () => apiClient.get<Share[]>('/shares/incoming').then((r) => r.data),
+  create: (body: CreateSharePayload) => apiClient.post<Share[]>('/shares', body).then((r) => r.data),
+  update: (id: string, permission: SharePermission) =>
+    apiClient.patch<Share>(`/shares/${id}`, { permission }).then((r) => r.data),
+  revoke: (id: string) => apiClient.delete(`/shares/${id}`).then(() => undefined),
 };

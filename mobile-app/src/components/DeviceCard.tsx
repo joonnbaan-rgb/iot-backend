@@ -34,6 +34,11 @@ export function DeviceCard({ device, onPress }: { device: Device; onPress: () =>
         </View>
         <StatusBadge status={device.status} />
       </View>
+      {(device.access_level === 'view' || device.access_level === 'control') && (
+        <Text style={styles.shared}>
+          แชร์จาก {device.owner_email ?? 'ผู้ใช้อื่น'} · {device.access_level === 'control' ? 'ควบคุมได้' : 'ดูอย่างเดียว'}
+        </Text>
+      )}
       <Text style={styles.lastSeen}>อัปเดตล่าสุด: {timeAgoTh(device.last_seen_at)}</Text>
     </Pressable>
   );
@@ -53,5 +58,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1, marginRight: spacing.sm },
   name: { color: colors.textPrimary, fontSize: 17, fontWeight: '600', marginBottom: 2 },
   meta: { color: colors.textSecondary, fontSize: 13 },
+  shared: { color: colors.primary, fontSize: 12, marginTop: spacing.xs },
   lastSeen: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
 });

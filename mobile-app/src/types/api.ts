@@ -27,6 +27,8 @@ export interface Device {
   last_seen_at: string | null;
   rtsp_url: string | null;
   owner_id?: string | null;
+  // อีเมลเจ้าของ (มีเฉพาะอุปกรณ์ที่ถูกแชร์มาให้)
+  owner_email?: string | null;
   // ระดับสิทธิ์ของผู้ใช้ปัจจุบันต่ออุปกรณ์นี้ (backend คำนวณให้)
   access_level?: AccessLevel;
   created_at: string;
@@ -70,6 +72,31 @@ export interface CameraStreamUrls {
   hls_url?: string;
   webrtc_url?: string;
   rtsp_source?: string | null;
+  // กล้องตั้งค่า source แล้วหรือยัง (ผู้ที่ถูกแชร์ไม่เห็น rtsp_source จริง)
+  source_configured?: boolean;
+}
+
+export interface DeviceGroup {
+  id: string;
+  name: string;
+  device_ids: string[];
+  created_at: string;
+}
+
+export type SharePermission = 'view' | 'control';
+
+export interface Share {
+  id: string;
+  scope: 'all' | 'device' | 'group';
+  permission: SharePermission;
+  device_id: string | null;
+  device_name: string | null;
+  group_id: string | null;
+  group_name: string | null;
+  // outgoing = อีเมลผู้รับ, incoming = อีเมลเจ้าของ
+  counterpart_email: string;
+  counterpart_id: string;
+  created_at: string;
 }
 
 export interface ApiErrorBody {
