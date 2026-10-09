@@ -69,9 +69,9 @@ export class DiscoveryService {
         resolve(ok);
       };
       sock.setTimeout(timeoutMs);
-      sock.once('connect', () => done(true));
-      sock.once('timeout', () => done(false));
-      sock.once('error', () => done(false));
+      sock.on('connect', () => done(true));
+      sock.on('timeout', () => done(false));
+      sock.on('error', () => done(false));
       sock.connect(port, host);
     });
   }
@@ -95,8 +95,8 @@ export class DiscoveryService {
         resolve(ok);
       };
       sock.setTimeout(timeoutMs);
-      sock.once('timeout', () => done(false));
-      sock.once('error', () => done(false));
+      sock.on('timeout', () => done(false));
+      sock.on('error', () => done(false));
       sock.on('data', (d) => {
         buf += d.toString('latin1');
         if (buf.includes('RTSP/')) done(true);
