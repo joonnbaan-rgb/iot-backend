@@ -35,6 +35,16 @@ export interface Device {
   updated_at: string;
 }
 
+export interface DiscoveredDevice {
+  ip: string;
+  kind: 'tasmota' | 'sonoff_diy' | 'ip_camera';
+  name: string;
+  detail: string;
+  suggested_type: 'actuator' | 'camera';
+  suggested_rtsp_url?: string;
+  already_added: boolean;
+}
+
 export type AccessLevel = 'admin' | 'owner' | 'control' | 'view';
 
 export interface SensorDataPoint {

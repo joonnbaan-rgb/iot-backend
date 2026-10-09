@@ -5,6 +5,7 @@ import type {
   Device,
   DeviceCommand,
   DeviceGroup,
+  DiscoveredDevice,
   Share,
   SharePermission,
   NotificationLog,
@@ -34,7 +35,14 @@ export const devicesApi = {
 
   get: (deviceId: string) => apiClient.get<Device>(`/devices/${deviceId}`).then((r) => r.data),
 
-  create: (body: { name: string; type: Device['type']; location?: string; rtsp_url?: string }) =>
+  create: (body: {
+    name: string;
+    type: Device['type'];
+    location?: string;
+    rtsp_url?: string;
+    connection_protocol?: 'tasmota' | 'sonoff_diy' | 'rtsp';
+    connection_host?: string;
+  }) =>
     apiClient.post<Device>('/devices', body).then((r) => r.data),
 
   update: (deviceId: string, body: { name?: string; location?: string }) =>
@@ -97,4 +105,14 @@ export const sharesApi = {
   update: (id: string, permission: SharePermission) =>
     apiClient.patch<Share>(`/shares/${id}`, { permission }).then((r) => r.data),
   revoke: (id: string) => apiClient.delete(`/shares/${id}`).then(() => undefined),
+};
+
+export const discoveryApi = {
+  // สแกนหา Tasmota / Sonoff DIY / กล้อง RTSP ในวง LAN ของเซิร์ฟเวอร์ (ใช้เวลาประมาณ 5-20 วินาที)
+  scan: (subnet?: string) =>
+    apiClient
+      .post<{ subnet: string; devices: DiscoveredDevice[] }>('/discovery/scan', subnet ? { subnet } : {}, {
+        timeout: 90000,
+      })
+      .then((r) => r.data),
 };

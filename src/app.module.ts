@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
+import { DiscoveryModule } from './discovery/discovery.module';
 import { SharingModule } from './sharing/sharing.module';
 import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
 
@@ -46,6 +47,7 @@ import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
     RealtimeModule,
     NotificationsModule,
     SharingModule,
+    DiscoveryModule,
     HealthModule,
     MetricsModule,
   ],

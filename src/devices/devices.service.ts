@@ -55,6 +55,10 @@ export class DevicesService {
       name: dto.name,
       type: dto.type,
       location: dto.location,
+      connection:
+        dto.connection_protocol && dto.connection_host
+          ? { protocol: dto.connection_protocol, host: dto.connection_host }
+          : null,
       rtsp_url: null, // ตั้งผ่าน setSource ด้านล่าง เพื่อให้ MediaMTX ลงทะเบียน path ไปพร้อมกัน
       owner_id: user.sub,
     });

@@ -107,6 +107,8 @@ services:
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
       RECORDINGS_DIR: /recordings
+      # วง LAN ที่ใช้สแกนหาอุปกรณ์ตอนเพิ่มอุปกรณ์ (ตั้งใน .env ได้ เช่น DISCOVERY_SUBNET=192.168.1.0/24)
+      DISCOVERY_SUBNET: ${DISCOVERY_SUBNET:-192.168.1.0/24}
     volumes:
       - ./src:/app/src
       - ./recordings:/recordings # ต้อง mount path เดียวกับ mediamtx เพื่อให้ backend อ่านไฟล์คลิปได้

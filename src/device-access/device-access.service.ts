@@ -56,7 +56,10 @@ export class DeviceAccessService {
 
   /** ปิดบังข้อมูลที่เฉพาะเจ้าของควรเห็น (เช่น RTSP URL ที่อาจมีรหัสผ่านกล้อง) */
   private redact<T extends Device>(device: T, level: AccessLevel): T {
-    if (level === 'view' || level === 'control') device.rtsp_url = null;
+    if (level === 'view' || level === 'control') {
+      device.rtsp_url = null;
+      device.connection = null; // IP ภายในบ้านของเจ้าของ ไม่เปิดเผยให้ผู้ที่ถูกแชร์
+    }
     return device;
   }
 

@@ -44,6 +44,10 @@ export class Device {
   @Column({ type: 'varchar', nullable: true })
   rtsp_url: string | null;
 
+  // อุปกรณ์จริงที่จับคู่ไว้ เช่น { protocol: 'tasmota', host: '192.168.1.50' } (NULL = ไม่ได้จับคู่)
+  @Column({ type: 'jsonb', nullable: true })
+  connection: { protocol: 'tasmota' | 'sonoff_diy' | 'rtsp'; host: string } | null;
+
   // เจ้าของอุปกรณ์ (NULL = ไม่มีเจ้าของ เข้าถึงได้เฉพาะ admin)
   @Index()
   @Column({ type: 'uuid', nullable: true })
