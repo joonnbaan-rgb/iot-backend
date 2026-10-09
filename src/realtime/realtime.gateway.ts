@@ -11,10 +11,13 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { DeviceAccessService } from '../device-access/device-access.service';
 
-// ห้องกลางที่ client ทุกคน (ที่ authenticate ผ่าน) จะถูก join อัตโนมัติ
-// ใช้กระจาย event ภาพรวม (สถานะอุปกรณ์เปลี่ยน, rule ทำงาน) ให้ dashboard เห็นโดยไม่ต้อง subscribe ทีละตัว
-const DEVICES_ROOM = 'devices';
+// event ภาพรวม (สถานะอุปกรณ์เปลี่ยน, rule ทำงาน) ส่งเฉพาะคนที่เกี่ยวข้องกับอุปกรณ์นั้น:
+//  - ห้อง user:{id}  = ผู้ใช้แต่ละคน (เจ้าของอุปกรณ์/คนที่ถูกแชร์ให้)
+//  - ห้อง admins     = admin ทุกคน
+const ADMINS_ROOM = 'admins';
+const userRoom = (userId: string) => `user:${userId}`;
 
 @WebSocketGateway({
   // local dev เปิดกว้างไว้ก่อน ตอน deploy จริงควรจำกัด origin (ดู Phase 8: Hardening)
@@ -29,6 +32,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly deviceAccess: DeviceAccessService,
   ) {}
 
   handleConnection(client: Socket): void {
@@ -44,7 +48,8 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
         secret: this.configService.get<string>('JWT_SECRET'),
       });
       client.data.user = payload;
-      client.join(DEVICES_ROOM);
+      client.join(userRoom(payload.sub));
+      if (payload.role === 'admin') client.join(ADMINS_ROOM);
       this.logger.log(`WebSocket client ${client.id} เชื่อมต่อสำเร็จ (user: ${payload.email})`);
     } catch {
       this.logger.warn(`WebSocket client ${client.id} ใช้ token ไม่ถูกต้องหรือหมดอายุ ตัดการเชื่อมต่อ`);
@@ -57,7 +62,12 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   @SubscribeMessage('subscribe:device')
-  handleSubscribeDevice(@ConnectedSocket() client: Socket, @MessageBody() deviceId: string) {
+  async handleSubscribeDevice(@ConnectedSocket() client: Socket, @MessageBody() deviceId: string) {
+    try {
+      await this.deviceAccess.assert(client.data.user, deviceId, 'view');
+    } catch {
+      return { event: 'error', device_id: deviceId, message: 'ไม่มีสิทธิ์ดูอุปกรณ์นี้' };
+    }
     client.join(`device:${deviceId}`);
     return { event: 'subscribed', device_id: deviceId };
   }
@@ -84,7 +94,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
       status,
       timestamp: new Date().toISOString(),
     };
-    this.server.to(DEVICES_ROOM).emit('device:status', payload);
+    void this.emitToDeviceAudience(deviceId, 'device:status', payload);
   }
 
   emitTelemetry(deviceId: string, value: number, unit: string | undefined, recordedAt: Date): void {
@@ -114,6 +124,16 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
       action,
       timestamp: new Date().toISOString(),
     };
-    this.server.to(DEVICES_ROOM).emit('rule:triggered', payload);
+    void this.emitToDeviceAudience(deviceId, 'rule:triggered', payload);
+  }
+
+  /** ส่ง event ให้ admin + ผู้ใช้ที่มีสิทธิ์เห็นอุปกรณ์นั้นเท่านั้น */
+  private async emitToDeviceAudience(deviceId: string, event: string, payload: unknown): Promise<void> {
+    try {
+      const userIds = await this.deviceAccess.audienceUserIds(deviceId);
+      this.server.to([ADMINS_ROOM, ...userIds.map(userRoom)]).emit(event, payload);
+    } catch (err) {
+      this.logger.warn(`ส่ง event ${event} ของอุปกรณ์ ${deviceId} ไม่สำเร็จ: ${(err as Error).message}`);
+    }
   }
 }

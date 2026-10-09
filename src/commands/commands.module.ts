@@ -7,6 +7,7 @@ import { CommandsController } from './commands.controller';
 import { MqttModule } from '../mqtt/mqtt.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { DeviceAccessModule } from '../device-access/device-access.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => MqttModule),
     RealtimeModule,
     NotificationsModule,
+    DeviceAccessModule,
   ],
   controllers: [CommandsController],
   providers: [CommandsService],

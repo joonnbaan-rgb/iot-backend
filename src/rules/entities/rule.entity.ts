@@ -52,6 +52,11 @@ export class Rule {
   @Column({ type: 'timestamptz', nullable: true })
   last_triggered_at: Date | null;
 
+  // ผู้สร้าง/เจ้าของ rule (NULL = เข้าถึงได้เฉพาะ admin)
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  owner_id: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

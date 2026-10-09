@@ -7,7 +7,6 @@ import { extractErrorMessage } from '@/api/client';
 import { getSocket, type DeviceStatusEvent } from '@/realtime/socket';
 import { DeviceCard } from '@/components/DeviceCard';
 import { Button } from '@/components/Button';
-import { useAuth } from '@/contexts/AuthContext';
 import { colors, spacing } from '@/theme';
 import type { Device } from '@/types/api';
 import type { DevicesStackParamList } from '@/navigation/types';
@@ -15,7 +14,6 @@ import type { DevicesStackParamList } from '@/navigation/types';
 type Props = NativeStackScreenProps<DevicesStackParamList, 'DevicesList'>;
 
 export function DevicesListScreen({ navigation }: Props) {
-  const { user } = useAuth();
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,9 +65,7 @@ export function DevicesListScreen({ navigation }: Props) {
           <Text style={styles.title}>อุปกรณ์ของคุณ</Text>
           <Text style={styles.subtitle}>{devices.length} เครื่อง</Text>
         </View>
-        {user?.role === 'admin' && (
-          <Button title="+ เพิ่มอุปกรณ์" onPress={() => navigation.navigate('AddDevice')} style={styles.addBtn} />
-        )}
+        <Button title="+ เพิ่มอุปกรณ์" onPress={() => navigation.navigate('AddDevice')} style={styles.addBtn} />
       </View>
 
       {!!error && (
@@ -93,7 +89,7 @@ export function DevicesListScreen({ navigation }: Props) {
           !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>
-                {error ? '' : 'ยังไม่มีอุปกรณ์ในระบบ\nกด "เพิ่มอุปกรณ์" เพื่อลงทะเบียนเครื่องแรก'}
+                {error ? '' : 'คุณยังไม่มีอุปกรณ์\nกด "เพิ่มอุปกรณ์" เพื่อลงทะเบียนเครื่องแรก'}
               </Text>
             </View>
           ) : null

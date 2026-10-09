@@ -129,4 +129,14 @@ export class RecordingsService implements OnModuleInit {
       })),
     );
   }
+
+  /** ลบไฟล์คลิปของกล้องตัวหนึ่งออกจาก MinIO (แถวใน DB ถูกลบตาม ON DELETE CASCADE ตอนลบอุปกรณ์) */
+  async deleteAllForDevice(deviceId: string): Promise<void> {
+    const rows = await this.recordingRepository.find({ where: { device_id: deviceId } });
+    if (rows.length === 0) return;
+    await this.minioClient.removeObjects(
+      BUCKET_NAME,
+      rows.map((r) => r.object_key),
+    );
+  }
 }

@@ -5,9 +5,10 @@ import { CameraRecording } from './entities/camera-recording.entity';
 import { CamerasService } from './cameras.service';
 import { RecordingsService } from './recordings.service';
 import { CamerasController } from './cameras.controller';
+import { DeviceAccessModule } from '../device-access/device-access.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Device, CameraRecording])],
+  imports: [TypeOrmModule.forFeature([Device, CameraRecording]), DeviceAccessModule],
   controllers: [CamerasController],
   providers: [CamerasService, RecordingsService],
   exports: [CamerasService],

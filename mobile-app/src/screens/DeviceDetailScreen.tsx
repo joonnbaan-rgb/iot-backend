@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/Button';
 import { CameraPlayer } from '@/components/CameraPlayer';
 import { TextField } from '@/components/TextField';
-import { useAuth } from '@/contexts/AuthContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { colors, radius, spacing } from '@/theme';
 import type { CameraStreamUrls, Device, DeviceCommand, SensorDataPoint } from '@/types/api';
@@ -25,10 +24,8 @@ type Props = NativeStackScreenProps<DevicesStackParamList, 'DeviceDetail'>;
 
 const CHART_WIDTH = Dimensions.get('window').width - spacing.md * 2 - spacing.md * 2;
 
-export function DeviceDetailScreen({ route }: Props) {
+export function DeviceDetailScreen({ route, navigation }: Props) {
   const { deviceId } = route.params;
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
 
   const [device, setDevice] = useState<Device | null>(null);
   const [telemetry, setTelemetry] = useState<SensorDataPoint[]>([]);
@@ -39,6 +36,9 @@ export function DeviceDetailScreen({ route }: Props) {
   const [sendingAction, setSendingAction] = useState<string | null>(null);
   const [rtspInput, setRtspInput] = useState('rtsp://localhost:8554/webcam');
   const [savingSource, setSavingSource] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // เจ้าของอุปกรณ์หรือ admin เท่านั้นที่แก้ไข/ลบ/ตั้งค่ากล้องได้
+  const canManage = device?.access_level === 'owner' || device?.access_level === 'admin';
 
   const load = useCallback(
     async (isRefresh = false) => {
@@ -46,6 +46,7 @@ export function DeviceDetailScreen({ route }: Props) {
       try {
         const d = await devicesApi.get(deviceId);
         setDevice(d);
+        navigation.setOptions({ title: d.name }); // ชื่ออาจเพิ่งถูกแก้จากหน้าแก้ไข
 
         if (d.type === 'sensor') {
           const points = await telemetryApi.history(deviceId, { limit: 30 });
@@ -68,7 +69,7 @@ export function DeviceDetailScreen({ route }: Props) {
         isRefresh ? setRefreshing(false) : setLoading(false);
       }
     },
-    [deviceId],
+    [deviceId, navigation],
   );
 
   useFocusEffect(
@@ -114,6 +115,31 @@ export function DeviceDetailScreen({ route }: Props) {
       unsubscribeFromDevice(deviceId);
     };
   }, [deviceId]);
+
+  function confirmDelete() {
+    if (!device) return;
+    Alert.alert(
+      'ลบอุปกรณ์',
+      `ลบ "${device.name}" ถาวร?\nข้อมูล telemetry ประวัติคำสั่ง rule และคลิปของอุปกรณ์นี้จะถูกลบทั้งหมด และกู้คืนไม่ได้`,
+      [
+        { text: 'ยกเลิก', style: 'cancel' },
+        {
+          text: 'ลบ',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await devicesApi.remove(deviceId);
+              navigation.goBack();
+            } catch (err) {
+              Alert.alert('ลบไม่สำเร็จ', extractErrorMessage(err));
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   async function saveCameraSource() {
     const url = rtspInput.trim();
@@ -252,13 +278,13 @@ export function DeviceDetailScreen({ route }: Props) {
             <CameraPlayer hlsUrl={streamUrls.hls_url} />
           ) : (
             <Text style={styles.emptyText}>
-              {isAdmin ? 'ยังไม่ได้ตั้งค่า RTSP source ตั้งค่าด้านล่างเพื่อเริ่มดูสด' : 'กล้องนี้ยังไม่ได้ตั้งค่า (ให้ผู้ดูแลระบบตั้งค่า)'}
+              {canManage ? 'ยังไม่ได้ตั้งค่า RTSP source ตั้งค่าด้านล่างเพื่อเริ่มดูสด' : 'กล้องนี้ยังไม่ได้ตั้งค่า (ให้เจ้าของอุปกรณ์ตั้งค่า)'}
             </Text>
           )}
-          {isAdmin && (
+          {canManage && (
             <View style={styles.sourceBox}>
               <TextField
-                label="RTSP source (ผู้ดูแลระบบ)"
+                label="RTSP source"
                 value={rtspInput}
                 onChangeText={setRtspInput}
                 autoCapitalize="none"
@@ -271,6 +297,21 @@ export function DeviceDetailScreen({ route }: Props) {
               <Button title="บันทึกและเชื่อมต่อ" onPress={saveCameraSource} loading={savingSource} />
             </View>
           )}
+        </View>
+      )}
+
+      {canManage && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>จัดการอุปกรณ์</Text>
+          <View style={styles.actionRow}>
+            <Button
+              title="แก้ไข"
+              variant="secondary"
+              onPress={() => navigation.navigate('EditDevice', { deviceId })}
+              style={styles.actionBtn}
+            />
+            <Button title="ลบ" variant="danger" onPress={confirmDelete} loading={deleting} style={styles.actionBtn} />
+          </View>
         </View>
       )}
 

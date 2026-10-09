@@ -8,6 +8,7 @@ import { RulesController } from './rules.controller';
 import { CommandsModule } from '../commands/commands.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { DeviceAccessModule } from '../device-access/device-access.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     CommandsModule,
     RealtimeModule,
     NotificationsModule,
+    DeviceAccessModule,
   ],
   controllers: [RulesController],
   providers: [RulesService],

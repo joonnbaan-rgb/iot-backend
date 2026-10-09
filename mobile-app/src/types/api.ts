@@ -26,9 +26,14 @@ export interface Device {
   location: string | null;
   last_seen_at: string | null;
   rtsp_url: string | null;
+  owner_id?: string | null;
+  // ระดับสิทธิ์ของผู้ใช้ปัจจุบันต่ออุปกรณ์นี้ (backend คำนวณให้)
+  access_level?: AccessLevel;
   created_at: string;
   updated_at: string;
 }
+
+export type AccessLevel = 'admin' | 'owner' | 'control' | 'view';
 
 export interface SensorDataPoint {
   id: string;

@@ -7,6 +7,7 @@ export type DevicesStackParamList = {
   DevicesList: undefined;
   DeviceDetail: { deviceId: string; deviceName: string };
   AddDevice: undefined;
+  EditDevice: { deviceId: string };
 };
 
 export type RootTabParamList = {

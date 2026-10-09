@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Device, DeviceType } from '../devices/entities/device.entity';
+import { RecordingsService } from './recordings.service';
 
 export interface StreamUrls {
   hls_url: string;
@@ -18,6 +19,7 @@ export class CamerasService {
     @InjectRepository(Device)
     private readonly deviceRepository: Repository<Device>,
     private readonly configService: ConfigService,
+    private readonly recordingsService: RecordingsService,
   ) {}
 
   /**
@@ -64,6 +66,20 @@ export class CamerasService {
       throw new Error(`ตั้งค่า MediaMTX path ล้มเหลว (${res.status}): ${text}`);
     }
     this.logger.log(`ตั้งค่า MediaMTX path "${deviceId}" -> ${rtspUrl} สำเร็จ`);
+  }
+
+  /**
+   * เก็บกวาดเมื่อลบกล้อง: ลบ path ใน MediaMTX และคลิปที่อัปโหลดไว้ใน MinIO
+   * ทำแบบ best-effort ไม่ throw เพื่อไม่ให้การลบอุปกรณ์ล้มเพราะ service ภายนอกไม่พร้อม
+   */
+  async removeDeviceArtifacts(deviceId: string): Promise<void> {
+    const apiUrl = this.configService.get<string>('MEDIAMTX_API_URL', 'http://localhost:9997');
+    await fetch(`${apiUrl}/v3/config/paths/delete/${deviceId}`, { method: 'DELETE' }).catch((err) =>
+      this.logger.warn(`ลบ MediaMTX path ของ ${deviceId} ไม่สำเร็จ: ${err.message}`),
+    );
+    await this.recordingsService
+      .deleteAllForDevice(deviceId)
+      .catch((err) => this.logger.warn(`ลบคลิปของ ${deviceId} ไม่สำเร็จ: ${err.message}`));
   }
 
   async getStreamUrls(deviceId: string): Promise<StreamUrls> {

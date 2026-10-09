@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { DevicesService } from './devices.service';
-import { Device } from './entities/device.entity';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../users/entities/user.entity';
+import { CreateDeviceDto } from './dto/create-device.dto';
+import { UpdateDeviceDto } from './dto/update-device.dto';
+import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
 // ทุก endpoint ในนี้ต้อง login (ไม่มี @Public()) จึงใช้ UserThrottlerGuard
 // (จำกัดโควตาแยกตาม user) แทน global IP-based ThrottlerGuard
@@ -12,20 +12,35 @@ import { UserRole } from '../users/entities/user.entity';
 export class DevicesController {
   constructor(private readonly devicesService: DevicesService) {}
 
+  // คืนเฉพาะอุปกรณ์ที่ผู้ใช้มองเห็น (ของตัวเอง; admin เห็นทั้งหมด) พร้อม access_level
   @Get()
-  findAll(): Promise<Device[]> {
-    return this.devicesService.findAll();
+  findAll(@CurrentUser() user: CurrentUserPayload) {
+    return this.devicesService.listFor(user);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<Device> {
-    return this.devicesService.findOne(id);
+  findOne(@CurrentUser() user: CurrentUserPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.devicesService.getFor(user, id);
   }
 
-  // เฉพาะ admin เท่านั้นที่แก้ device registry ได้ (เพิ่มอุปกรณ์ใหม่เข้าระบบ)
-  @Roles(UserRole.ADMIN)
+  // ผู้ใช้ทุกคนเพิ่มอุปกรณ์ของตัวเองได้ (อุปกรณ์จะมี owner_id = ผู้เรียก)
   @Post()
-  create(@Body() body: Partial<Device>): Promise<Device> {
-    return this.devicesService.create(body);
+  create(@CurrentUser() user: CurrentUserPayload, @Body() dto: CreateDeviceDto) {
+    return this.devicesService.createFor(user, dto);
+  }
+
+  @Patch(':id')
+  update(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDeviceDto,
+  ) {
+    return this.devicesService.updateFor(user, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@CurrentUser() user: CurrentUserPayload, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.devicesService.removeFor(user, id);
   }
 }

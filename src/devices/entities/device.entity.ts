@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 export enum DeviceType {
@@ -42,6 +43,11 @@ export class Device {
   // ใช้เฉพาะ device ประเภท camera: ที่อยู่ RTSP source ของกล้องตัวจริง
   @Column({ type: 'varchar', nullable: true })
   rtsp_url: string | null;
+
+  // เจ้าของอุปกรณ์ (NULL = ไม่มีเจ้าของ เข้าถึงได้เฉพาะ admin)
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  owner_id: string | null;
 
   @CreateDateColumn()
   created_at: Date;

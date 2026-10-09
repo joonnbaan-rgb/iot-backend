@@ -9,6 +9,9 @@ import { UpdateRuleDto } from './dto/update-rule.dto';
 import { CommandsService } from '../commands/commands.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import { DeviceAccessService } from '../device-access/device-access.service';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class RulesService {
@@ -24,53 +27,54 @@ export class RulesService {
     private readonly commandsService: CommandsService,
     private readonly realtimeGateway: RealtimeGateway,
     private readonly notificationsService: NotificationsService,
+    private readonly access: DeviceAccessService,
   ) {}
 
-  async create(dto: CreateRuleDto): Promise<Rule> {
-    await this.assertDeviceExists(dto.sensor_device_id);
-    await this.assertDeviceExists(dto.target_device_id);
-    const rule = this.ruleRepository.create(dto);
+  /** rule ต้องผูกกับอุปกรณ์ที่ผู้สร้างมองเห็น (เซนเซอร์) และสั่งงานได้ (เป้าหมาย) */
+  async create(user: CurrentUserPayload, dto: CreateRuleDto): Promise<Rule> {
+    await this.access.assert(user, dto.sensor_device_id, 'view');
+    await this.access.assert(user, dto.target_device_id, 'control');
+    const rule = this.ruleRepository.create({ ...dto, owner_id: user.sub });
     return this.ruleRepository.save(rule);
   }
 
-  findAll(): Promise<Rule[]> {
-    return this.ruleRepository.find({ order: { created_at: 'DESC' } });
+  /** admin เห็นทุก rule, ผู้ใช้ทั่วไปเห็นเฉพาะที่ตัวเองสร้าง */
+  findAllFor(user: CurrentUserPayload): Promise<Rule[]> {
+    return this.ruleRepository.find({
+      where: user.role === UserRole.ADMIN ? {} : { owner_id: user.sub },
+      order: { created_at: 'DESC' },
+    });
   }
 
-  async findOne(id: string): Promise<Rule> {
+  async findOneFor(user: CurrentUserPayload, id: string): Promise<Rule> {
     const rule = await this.ruleRepository.findOne({ where: { id } });
-    if (!rule) {
+    // ไม่ใช่ของตัวเองและไม่ใช่ admin -> 404 เหมือนไม่มี rule นี้ (ไม่เปิดเผยการมีอยู่)
+    if (!rule || (user.role !== UserRole.ADMIN && rule.owner_id !== user.sub)) {
       throw new NotFoundException(`ไม่พบ rule id: ${id}`);
     }
     return rule;
   }
 
-  async update(id: string, dto: UpdateRuleDto): Promise<Rule> {
-    const rule = await this.findOne(id);
-    if (dto.sensor_device_id) await this.assertDeviceExists(dto.sensor_device_id);
-    if (dto.target_device_id) await this.assertDeviceExists(dto.target_device_id);
+  async updateFor(user: CurrentUserPayload, id: string, dto: UpdateRuleDto): Promise<Rule> {
+    const rule = await this.findOneFor(user, id);
+    if (dto.sensor_device_id) await this.access.assert(user, dto.sensor_device_id, 'view');
+    if (dto.target_device_id) await this.access.assert(user, dto.target_device_id, 'control');
     Object.assign(rule, dto);
     return this.ruleRepository.save(rule);
   }
 
-  async remove(id: string): Promise<void> {
-    const rule = await this.findOne(id);
+  async removeFor(user: CurrentUserPayload, id: string): Promise<void> {
+    const rule = await this.findOneFor(user, id);
     await this.ruleRepository.remove(rule);
   }
 
-  findLogs(ruleId: string, limit = 50): Promise<RuleExecutionLog[]> {
+  async findLogsFor(user: CurrentUserPayload, ruleId: string, limit = 50): Promise<RuleExecutionLog[]> {
+    await this.findOneFor(user, ruleId);
     return this.logRepository.find({
       where: { rule_id: ruleId },
       order: { created_at: 'DESC' },
       take: Math.min(limit, 200),
     });
-  }
-
-  private async assertDeviceExists(deviceId: string): Promise<void> {
-    const device = await this.deviceRepository.findOne({ where: { id: deviceId } });
-    if (!device) {
-      throw new NotFoundException(`ไม่พบอุปกรณ์ id: ${deviceId}`);
-    }
   }
 
   private matches(value: number, operator: RuleOperator, threshold: number): boolean {

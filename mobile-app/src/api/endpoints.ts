@@ -29,6 +29,11 @@ export const devicesApi = {
 
   create: (body: { name: string; type: Device['type']; location?: string; rtsp_url?: string }) =>
     apiClient.post<Device>('/devices', body).then((r) => r.data),
+
+  update: (deviceId: string, body: { name?: string; location?: string }) =>
+    apiClient.patch<Device>(`/devices/${deviceId}`, body).then((r) => r.data),
+
+  remove: (deviceId: string) => apiClient.delete(`/devices/${deviceId}`).then(() => undefined),
 };
 
 export const telemetryApi = {
