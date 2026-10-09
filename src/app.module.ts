@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
+import { SharingModule } from './sharing/sharing.module';
 import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
 
 @Module({
@@ -44,6 +45,7 @@ import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
     CamerasModule,
     RealtimeModule,
     NotificationsModule,
+    SharingModule,
     HealthModule,
     MetricsModule,
   ],

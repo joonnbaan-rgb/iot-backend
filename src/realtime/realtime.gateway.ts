@@ -127,6 +127,34 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     void this.emitToDeviceAudience(deviceId, 'rule:triggered', payload);
   }
 
+  /** แจ้งผู้ใช้คนหนึ่ง (เช่น ให้แอปรีเฟรชรายการอุปกรณ์หลังมีการแชร์/เพิกถอน) */
+  emitToUser(userId: string, event: string, payload: unknown = {}): void {
+    this.server?.to(userRoom(userId)).emit(event, payload);
+  }
+
+  /**
+   * ตรวจสิทธิ์ซ้ำของ socket ทุกตัวของผู้ใช้ แล้วให้ออกจากห้อง device:* ที่ไม่มีสิทธิ์ดูแล้ว
+   * (เรียกหลังเพิกถอน/ลดสิทธิ์แชร์ เพื่อไม่ให้ยังได้รับ telemetry ต่อ)
+   */
+  async revalidateUser(userId: string): Promise<void> {
+    if (!this.server) return;
+    try {
+      const sockets = await this.server.in(userRoom(userId)).fetchSockets();
+      for (const sock of sockets) {
+        for (const room of sock.rooms) {
+          if (!room.startsWith('device:')) continue;
+          try {
+            await this.deviceAccess.assert(sock.data.user, room.slice('device:'.length), 'view');
+          } catch {
+            sock.leave(room);
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`revalidate สิทธิ์ socket ของ ${userId} ไม่สำเร็จ: ${(err as Error).message}`);
+    }
+  }
+
   /** ส่ง event ให้ admin + ผู้ใช้ที่มีสิทธิ์เห็นอุปกรณ์นั้นเท่านั้น */
   private async emitToDeviceAudience(deviceId: string, event: string, payload: unknown): Promise<void> {
     try {
