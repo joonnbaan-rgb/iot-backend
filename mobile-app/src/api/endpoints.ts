@@ -22,7 +22,11 @@ export const authApi = {
   logout: (refreshToken: string) =>
     apiClient.post<{ message: string }>('/auth/logout', { refresh_token: refreshToken }).then((r) => r.data),
 
-  me: () => apiClient.get<User>('/auth/me').then((r) => r.data),
+  // backend ส่งกลับ payload ของ JWT ({ sub, email, role }) ไม่มี id -> แปลง sub เป็น id ให้แอปใช้เทียบเจ้าของอุปกรณ์
+  me: () =>
+    apiClient
+      .get<User & { sub?: string }>('/auth/me')
+      .then((r) => ({ ...r.data, id: r.data.id ?? r.data.sub ?? '' })),
 };
 
 export const devicesApi = {
