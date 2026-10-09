@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
+import { Interval } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { Device, DeviceType } from '../devices/entities/device.entity';
 import { RecordingsService } from './recordings.service';
@@ -66,6 +67,39 @@ export class CamerasService {
       throw new Error(`ตั้งค่า MediaMTX path ล้มเหลว (${res.status}): ${text}`);
     }
     this.logger.log(`ตั้งค่า MediaMTX path "${deviceId}" -> ${rtspUrl} สำเร็จ`);
+  }
+
+  /**
+   * path ที่ลงทะเบียนผ่าน API ของ MediaMTX อยู่ในหน่วยความจำ ถ้า MediaMTX รีสตาร์ตแล้ว path จะหาย
+   * จึงตรวจทุก 30 วินาที (และรอบแรกตอน backend เริ่มทำงาน) แล้วลงทะเบียนกล้องที่มี RTSP source แต่ยังไม่มี path ให้ใหม่
+   */
+  @Interval(30000)
+  async syncMediaMtxPaths(): Promise<void> {
+    const cameras = await this.deviceRepository.find({
+      where: { type: DeviceType.CAMERA, rtsp_url: Not(IsNull()) },
+    });
+    if (cameras.length === 0) return;
+
+    const apiUrl = this.configService.get<string>('MEDIAMTX_API_URL', 'http://localhost:9997');
+    let existing: Set<string>;
+    try {
+      const res = await fetch(`${apiUrl}/v3/config/paths/list?itemsPerPage=1000`);
+      if (!res.ok) return;
+      const body = (await res.json()) as { items?: { name: string }[] };
+      existing = new Set((body.items ?? []).map((i) => i.name));
+    } catch {
+      return; // MediaMTX ยังไม่พร้อม ลองใหม่รอบหน้า
+    }
+
+    for (const camera of cameras) {
+      if (existing.has(camera.id) || !camera.rtsp_url) continue;
+      try {
+        await this.registerMediaMtxPath(camera.id, camera.rtsp_url);
+        this.logger.log(`ลงทะเบียน MediaMTX path ของกล้อง ${camera.id} ใหม่ (path เดิมหายไป)`);
+      } catch (err) {
+        this.logger.warn(`ลงทะเบียน MediaMTX path ของกล้อง ${camera.id} ไม่สำเร็จ: ${(err as Error).message}`);
+      }
+    }
   }
 
   /**
