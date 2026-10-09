@@ -32,7 +32,7 @@ export function ShareCreateScreen({ route, navigation }: Props) {
     (async () => {
       try {
         const [all, gs] = await Promise.all([devicesApi.list(), groupsApi.list()]);
-        setDevices(all.filter((d) => d.access_level === 'owner' || d.access_level === 'admin'));
+        setDevices(all.filter((d) => d.access_level === 'owner'));
         setGroups(gs);
       } catch (err) {
         Alert.alert('โหลดข้อมูลไม่สำเร็จ', extractErrorMessage(err));

@@ -25,7 +25,7 @@ export function GroupEditScreen({ route, navigation }: Props) {
       try {
         const all = await devicesApi.list();
         // ในกลุ่มใส่ได้เฉพาะอุปกรณ์ที่เราเป็นเจ้าของ
-        setDevices(all.filter((d) => d.access_level === 'owner' || d.access_level === 'admin'));
+        setDevices(all.filter((d) => d.access_level === 'owner'));
         if (groupId) {
           const groups = await groupsApi.list();
           const g = groups.find((x) => x.id === groupId);
