@@ -55,7 +55,7 @@ export class DiscoveryService {
     if (!isPrivate(base)) throw new BadRequestException('สแกนได้เฉพาะเครือข่ายภายใน (192.168.x.x, 10.x.x.x, 172.16-31.x.x)');
     if (!(prefix >= 22 && prefix <= 30)) throw new BadRequestException('ขนาดเครือข่ายต้องอยู่ระหว่าง /22 ถึง /30');
     const mask = (~0 << (32 - prefix)) >>> 0;
-    const network = ipToInt(base) & mask;
+    const network = (ipToInt(base) & mask) >>> 0;
     const broadcast = (network | ~mask) >>> 0;
     const out: string[] = [];
     for (let n = network + 1; n < broadcast; n++) out.push(intToIp(n));
