@@ -67,3 +67,19 @@ jobs:
 
       - name: Run e2e tests
         run: npm run test:e2e --if-present
+
+  web-admin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # ยังไม่มี package-lock.json ใน web-admin จึงใช้ npm install
+      - run: npm install
+      - run: npm run build
+        env:
+          VITE_API_BASE_URL: http://localhost:3000
