@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getSocket, useSocketEvent } from '../lib/socket';
 import { DeviceGlyph, inferIcon } from '../lib/deviceIcons';
-import { TYPE_LABEL, type Device, type DeviceCommand, type MqttCredentials, type SensorPoint, type StreamUrls } from '../lib/types';
+import { TYPE_LABEL, type Device, type DeviceCommand, type MqttCredentials, type StreamUrls } from '../lib/types';
 import { fmtDateTime, fmtNum, timeAgo } from '../lib/format';
 import { ErrorBox, Modal, PageHead, StatusPill, errMsg, useLoad } from '../components/ui';
 import { LineChart } from '../components/LineChart';
@@ -63,18 +63,24 @@ function CameraPanel({ id }: { id: string }) {
 
 function TelemetryPanel({ id }: { id: string }) {
   const [range, setRange] = useState<Range>('24h');
-  const [points, setPoints] = useState<SensorPoint[]>([]);
+  // จุดกราฟ: v = ค่าเฉลี่ยของช่วง (หรือค่าดิบสำหรับจุดสดที่เพิ่งเข้ามา); lo/hi/n ใช้คำนวณสถิติ
+  const [points, setPoints] = useState<{ t: number; v: number; lo: number; hi: number; n: number }[]>([]);
+  const [unit, setUnit] = useState<string | null>(null);
+  const [bucket, setBucket] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    // ให้เซิร์ฟเวอร์สรุปเป็นช่วง (เร็วและไม่ตัดข้อมูลทิ้งเมื่อช่วงเวลายาว)
     api
-      .telemetry(id, { limit: 500, from: new Date(Date.now() - RANGES[range]).toISOString() })
-      .then((rows) => {
+      .telemetrySummary(id, new Date(Date.now() - RANGES[range]).toISOString())
+      .then((res) => {
         if (!alive) return;
-        setPoints([...rows].reverse());
+        setPoints(res.points.map((p) => ({ t: new Date(p.t).getTime(), v: p.avg, lo: p.min, hi: p.max, n: p.n })));
+        setUnit(res.unit);
+        setBucket(res.bucket);
         setError(null);
       })
       .catch((e) => alive && setError(errMsg(e)))
@@ -99,17 +105,26 @@ function TelemetryPanel({ id }: { id: string }) {
 
   useSocketEvent<{ device_id: string; value: number; unit: string | null; recorded_at: string }>('telemetry', (p) => {
     if (p.device_id !== id) return;
-    setPoints((prev) => [...prev.slice(-499), { device_id: id, value: p.value, unit: p.unit, recorded_at: p.recorded_at }]);
+    if (p.unit) setUnit(p.unit);
+    setPoints((prev) => [
+      ...prev.slice(-1999),
+      { t: new Date(p.recorded_at).getTime(), v: p.value, lo: p.value, hi: p.value, n: 1 },
+    ]);
   });
 
-  const chart = useMemo(() => points.map((p) => ({ t: new Date(p.recorded_at).getTime(), v: p.value })), [points]);
+  const chart = useMemo(() => points.map((p) => ({ t: p.t, v: p.v })), [points]);
   const last = points[points.length - 1];
-  const vals = points.map((p) => p.value);
+  const total = points.reduce((a, p) => a + p.n, 0);
+  const stats = {
+    lo: points.length ? Math.min(...points.map((p) => p.lo)) : null,
+    hi: points.length ? Math.max(...points.map((p) => p.hi)) : null,
+    avg: total ? points.reduce((a, p) => a + p.v * p.n, 0) / total : null,
+  };
 
   return (
     <section className="card">
       <div className="card-head">
-        <h2>ค่าที่วัดได้</h2>
+        <h2>ค่าที่วัดได้{bucket ? <small className="muted"> · เฉลี่ยทุก {bucket}</small> : null}</h2>
         <div className="seg">
           {(Object.keys(RANGES) as Range[]).map((r) => (
             <button key={r} className={r === range ? 'on' : ''} onClick={() => setRange(r)}>{r}</button>
@@ -118,12 +133,12 @@ function TelemetryPanel({ id }: { id: string }) {
       </div>
       <ErrorBox message={error} />
       <div className="stats">
-        <div><span>ล่าสุด</span><b className="mono">{last ? fmtNum(last.value) : '—'}</b><small>{last?.unit ?? ''}</small></div>
-        <div><span>ต่ำสุด</span><b className="mono">{vals.length ? fmtNum(Math.min(...vals)) : '—'}</b></div>
-        <div><span>สูงสุด</span><b className="mono">{vals.length ? fmtNum(Math.max(...vals)) : '—'}</b></div>
-        <div><span>เฉลี่ย</span><b className="mono">{vals.length ? fmtNum(vals.reduce((a, b) => a + b, 0) / vals.length) : '—'}</b></div>
+        <div><span>ล่าสุด</span><b className="mono">{last ? fmtNum(last.v) : '—'}</b><small>{unit ?? ''}</small></div>
+        <div><span>ต่ำสุด</span><b className="mono">{stats.lo !== null ? fmtNum(stats.lo) : '—'}</b></div>
+        <div><span>สูงสุด</span><b className="mono">{stats.hi !== null ? fmtNum(stats.hi) : '—'}</b></div>
+        <div><span>เฉลี่ย</span><b className="mono">{stats.avg !== null ? fmtNum(stats.avg) : '—'}</b></div>
       </div>
-      {loading ? <div className="muted">กำลังโหลด…</div> : <LineChart points={chart} unit={last?.unit} />}
+      {loading ? <div className="muted">กำลังโหลด…</div> : <LineChart points={chart} unit={unit} />}
     </section>
   );
 }

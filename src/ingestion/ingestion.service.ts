@@ -11,6 +11,7 @@ import { TelemetryPayloadDto } from './dto/telemetry-payload.dto';
 import { RulesService } from '../rules/rules.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 @Injectable()
 export class IngestionService {
@@ -25,6 +26,7 @@ export class IngestionService {
     private readonly rulesService: RulesService,
     private readonly realtimeGateway: RealtimeGateway,
     private readonly notificationsService: NotificationsService,
+    private readonly metrics: MetricsService,
   ) {}
 
   /**
@@ -108,6 +110,15 @@ export class IngestionService {
         `⚠️ อุปกรณ์ "${device.name}" (${device.id}) ออฟไลน์ — ไม่มีข้อมูลเข้ามาเกิน ${thresholdSeconds} วินาที`,
         { deviceId: device.id },
       );
+    }
+
+    // ค่าสำหรับ Grafana: จำนวนอุปกรณ์ออนไลน์ ณ ตอนนี้ (อัปเดตทุก 15 วินาทีตามรอบนี้)
+    try {
+      this.metrics.devicesOnlineGauge.set(
+        await this.deviceRepository.count({ where: { status: DeviceStatus.ONLINE } }),
+      );
+    } catch {
+      /* ไม่สำคัญ */
     }
   }
 }

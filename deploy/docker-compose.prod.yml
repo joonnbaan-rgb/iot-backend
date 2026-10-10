@@ -19,6 +19,7 @@ services:
       API_DOMAIN: ${API_DOMAIN}
       STREAM_DOMAIN: ${STREAM_DOMAIN}
       ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin.invalid}
+      GRAFANA_DOMAIN: ${GRAFANA_DOMAIN:-monitor.invalid}
       MQTT_DOMAIN: ${MQTT_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
@@ -29,6 +30,7 @@ services:
       - backend
       - mediamtx
       - webadmin
+      - grafana
 
   # คัดลอกใบรับรองที่ Caddy ขอไว้ให้ MQTT domain ไปให้ EMQX อ่าน (กุญแจของ Caddy อ่านได้เฉพาะ root)
   certsync:
@@ -198,6 +200,9 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       NOTIFY_TZ: Asia/Bangkok
+      # เฟส H: รับ telemetry ผ่านคิว Redis Streams (ถ้า Redis ล่มจะ fallback เป็นเขียนตรงอัตโนมัติ)
+      INGEST_MODE: ${INGEST_MODE:-stream}
+      INGEST_BATCH_SIZE: ${INGEST_BATCH_SIZE:-500}
     volumes:
       - recordings:/recordings
 
@@ -209,9 +214,40 @@ services:
         VITE_API_BASE_URL: https://${API_DOMAIN}
     restart: unless-stopped
 
+  # เฟส H: เก็บ metrics + แดชบอร์ด (เข้าถึงเฉพาะในเครือข่าย docker; Grafana เปิดผ่าน Caddy ที่ monitor.<โดเมน>)
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: https://${GRAFANA_DOMAIN:-monitor.invalid}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
 volumes:
   caddy_data:
   caddy_config:
+  prometheus_data:
+  grafana_data:
   mqtt_certs:
   emqx_data:
   timescale_data:

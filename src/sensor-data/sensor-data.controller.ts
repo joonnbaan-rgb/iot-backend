@@ -28,4 +28,21 @@ export class SensorDataController {
       to: to ? new Date(to) : undefined,
     });
   }
+
+  /** สรุปเป็นช่วงเวลา (avg/min/max) สำหรับกราฟ — เร็วกว่าดึงข้อมูลดิบเมื่อช่วงเวลายาว */
+  @Get('summary')
+  async summary(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('deviceId') deviceId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('bucket') bucket?: string,
+  ) {
+    await this.access.assert(user, deviceId, 'view');
+    return this.sensorDataService.summary(deviceId, {
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+      bucket,
+    });
+  }
 }

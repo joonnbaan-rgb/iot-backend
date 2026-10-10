@@ -1,6 +1,6 @@
 import type {
   AuthTokens, Device, DeviceCommand, DeviceType, Invite, InviteCreated, Me, MqttCredentials, NotificationLog,
-  SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, UserRole, UserRow,
+  SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
 } from './types';
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
@@ -115,6 +115,8 @@ export const api = {
     if (q.from) p.set('from', q.from);
     return get<SensorPoint[]>(`/devices/${id}/telemetry?${p.toString()}`);
   },
+  telemetrySummary: (id: string, from: string) =>
+    get<TelemetrySummary>(`/devices/${id}/telemetry/summary?from=${encodeURIComponent(from)}`),
   commands: (id: string) => get<DeviceCommand[]>(`/devices/${id}/commands?limit=20`),
   sendCommand: (id: string, action: string) => post<DeviceCommand>(`/devices/${id}/commands`, { action }),
   issueMqtt: (id: string) => post<MqttCredentials>(`/devices/${id}/mqtt-credentials`),

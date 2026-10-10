@@ -17,6 +17,12 @@
 	reverse_proxy webadmin:80
 }
 
+# Grafana (ต้องล็อกอินด้วยรหัส admin ใน deploy/.env.prod -> GRAFANA_ADMIN_PASSWORD)
+{$GRAFANA_DOMAIN} {
+	encode gzip
+	reverse_proxy grafana:3000
+}
+
 # สตรีมกล้อง (HLS) — ต้องมีโทเคนอายุจำกัดใน path: /s/{token}/{deviceId}/index.m3u8
 # ทุกคำขอ (playlist และ segment) ถูกส่งไปตรวจที่ backend ก่อน (route = ทำตามลำดับที่เขียน)
 {$STREAM_DOMAIN} {

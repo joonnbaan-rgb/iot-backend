@@ -52,6 +52,9 @@ docker compose exec backend npm run migration:revert   # ย้อน migration 
 ```
 พอร์ตที่ใช้: 3000 API, 5432 DB, 6379 Redis, 1883 MQTT, 18083 EMQX dashboard, 8554 RTSP, 8888 HLS, 8889 WebRTC, 9997 MediaMTX API, 9000/9001 MinIO
 
+> เฟส H เพิ่มแพ็กเกจ `ioredis` ถ้า backend รันแบบไม่ใช้ Docker ให้รัน `npm install` ที่รากโปรเจกต์ก่อน
+> (Docker build ติดตั้งให้เอง) แล้ว commit `package-lock.json` ที่เปลี่ยนไป ดูรายละเอียดที่ `docs/SCALE.md`
+
 ## 3) Backend แบบไม่ใช้ Docker สำหรับตัว backend (ไม่บังคับ)
 ใช้เมื่ออยากดีบัก: รันเฉพาะบริการเสริมใน Docker แล้วรัน backend บนเครื่อง โดยใน `.env` ให้เปลี่ยน host เป็น `localhost` (DB_HOST, REDIS_HOST, MQTT_URL, MEDIAMTX_API_URL, MINIO_ENDPOINT)
 ```powershell
@@ -71,6 +74,12 @@ npm run simulate:actuator        # จำลองอุปกรณ์ที่
 npm run simulate:camera-clip     # จำลองคลิปกล้องเข้า MinIO (ดู README Phase 5)
 ```
 (ดูอาร์กิวเมนต์ของแต่ละตัวใน README.md)
+
+### 4.1 ทดสอบโหลด (เฟส H)
+```powershell
+npm run loadtest:mqtt -- --email admin@example.com --password 'รหัสผ่าน' --devices 200 --duration 60
+```
+รายละเอียดและวิธีอ่านผล: `docs/SCALE.md`
 
 ## 5) Web Admin (React)
 ```powershell

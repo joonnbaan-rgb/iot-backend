@@ -50,8 +50,10 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      # ใช้ npm install แทน npm ci ชั่วคราว: เฟส H เพิ่ม ioredis แต่ package-lock.json ยังไม่ถูกอัปเดต
+      # (รัน npm install บนเครื่อง แล้ว commit package-lock.json จากนั้นเปลี่ยนกลับเป็น npm ci)
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Lint
         run: npm run lint --if-present

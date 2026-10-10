@@ -1,0 +1,41 @@
+# กฎแจ้งเตือน (ดูสถานะได้ที่ Prometheus > Alerts หรือใน Grafana)
+# ยังไม่ได้ต่อ Alertmanager — ถ้าต้องการให้ส่ง LINE/Telegram/อีเมล ให้เพิ่ม Alertmanager ภายหลัง
+groups:
+  - name: iot
+    rules:
+      - alert: BackendDown
+        expr: up{job="iot-backend"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "backend ไม่ตอบ /metrics เกิน 1 นาที" }
+
+      - alert: IngestBacklog
+        expr: iot_ingest_pending > 5000
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "คิว telemetry ค้างเกิน 5,000 รายการ (worker ช้ากว่าที่ข้อมูลเข้า)" }
+
+      - alert: IngestSlow
+        expr: histogram_quantile(0.95, sum(rate(iot_ingest_end_to_end_lag_seconds_bucket[5m])) by (le)) > 10
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "ข้อมูลเข้า DB ช้า: p95 เกิน 10 วินาที" }
+
+      - alert: IngestDeadLetters
+        expr: increase(iot_ingest_processed_total{result="dead"}[10m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "มี telemetry ถูกย้ายเข้า dead-letter (ข้อมูลผิดรูปแบบที่ DB ปฏิเสธ)" }
+
+      - alert: HighHttp5xxRate
+        expr: |
+          sum(rate(iot_http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+            / clamp_min(sum(rate(iot_http_request_duration_seconds_count[5m])), 1) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "HTTP 5xx เกิน 5% ของคำขอทั้งหมด" }
+
+      - alert: EventLoopLagHigh
+        expr: iot_nodejs_eventloop_lag_p99_seconds > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Node event loop หน่วงเกิน 0.5 วินาที (CPU เต็ม?)" }

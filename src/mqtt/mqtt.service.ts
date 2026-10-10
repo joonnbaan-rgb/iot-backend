@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as mqtt from 'mqtt';
 import { IngestionService } from '../ingestion/ingestion.service';
+import { IngestQueueService } from '../ingestion/ingest-queue.service';
 import { CommandsService } from '../commands/commands.service';
 
 const TELEMETRY_TOPIC_FILTER = 'devices/+/telemetry';
@@ -22,6 +23,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly configService: ConfigService,
     private readonly ingestionService: IngestionService,
+    private readonly ingestQueue: IngestQueueService,
     @Inject(forwardRef(() => CommandsService))
     private readonly commandsService: CommandsService,
   ) {}
@@ -80,7 +82,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (messageType === 'telemetry') {
-      await this.ingestionService.handleTelemetry(deviceId, parsed);
+      // โหมด stream: ส่งเข้าคิว Redis (worker จะรวม batch เขียน DB); ถ้าไม่ได้ใช้คิว/Redis ล่ม → ประมวลผลตรง
+      if (!(await this.ingestQueue.enqueue(deviceId, parsed))) {
+        await this.ingestionService.handleTelemetry(deviceId, parsed);
+      }
     } else if (messageType === 'ack') {
       await this.commandsService.handleAck(deviceId, parsed);
     } else {

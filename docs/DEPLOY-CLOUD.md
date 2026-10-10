@@ -131,3 +131,14 @@ Invoke-RestMethod https://api.example.com/invites -Method Post -Headers @{Author
 4. เปิด `https://admin.<โดเมน>` แล้วล็อกอินด้วยบัญชี admin (เมนู "ผู้ดูแล" เห็นเฉพาะ admin)
 
 หมายเหตุ: `VITE_API_BASE_URL` ถูกฝังตอน build — ถ้าเปลี่ยน API_DOMAIN ต้อง build webadmin ใหม่
+
+## 10) ขยายรองรับอุปกรณ์จำนวนมาก + Grafana (เฟส H)
+
+รายละเอียดทั้งหมดอยู่ที่ `docs/SCALE.md` สรุปสิ่งที่ต้องทำตอนอัปเดต production:
+1. เพิ่ม DNS `monitor.<โดเมน>` ชี้ IP เดียวกับ `api.<โดเมน>`
+2. `git pull` แล้วรัน `bash deploy/init.sh` อีกครั้ง (เติม `GRAFANA_DOMAIN`, `GRAFANA_ADMIN_PASSWORD`)
+3. `docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build`
+4. รัน migration (`... exec backend npm run migration:run`) — จะตั้ง compression/retention/continuous aggregates
+   **และเริ่มลบข้อมูลดิบที่เก่ากว่า 180 วัน** (ปรับได้ใน docs/SCALE.md); ถ้ามีข้อมูลเก่าอยู่แล้วให้ทำ "Backfill ข้อมูลเก่า" ใน docs/SCALE.md ด้วย
+5. เปิด `https://monitor.<โดเมน>` ล็อกอิน `admin` + รหัสใน `deploy/.env.prod` → IoT > IoT Overview
+6. production เปิดโหมดรับข้อมูลผ่านคิว Redis (`INGEST_MODE=stream`) เป็นค่าเริ่มต้นแล้ว ปิดได้โดยใส่ `INGEST_MODE=direct` ใน `deploy/.env.prod`

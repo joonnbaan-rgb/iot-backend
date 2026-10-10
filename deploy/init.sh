@@ -19,6 +19,7 @@ if [ ! -f .env.prod ]; then
 API_DOMAIN=api.${DOMAIN}
 STREAM_DOMAIN=stream.${DOMAIN}
 ADMIN_DOMAIN=admin.${DOMAIN}
+GRAFANA_DOMAIN=monitor.${DOMAIN}
 MQTT_DOMAIN=mqtt.${DOMAIN}
 ACME_EMAIL=${EMAIL}
 
@@ -39,6 +40,7 @@ INTERNAL_AUTH_TOKEN=$(rnd 24)
 STREAM_TOKEN_SECRET=$(rnd 32)
 # open = ใครก็สมัครได้ | invite = ต้องมีรหัสเชิญจาก admin | closed = ปิดรับ (ผู้ใช้คนแรกสมัครได้เสมอ)
 REGISTRATION_MODE=invite
+GRAFANA_ADMIN_PASSWORD=$(rnd 12)
 
 # ผู้ใช้/รหัสผ่านสำหรับส่งภาพกล้องจากบ้านขึ้น cloud (RTSP publish)
 RTSP_PUBLISH_USER=publisher
@@ -65,6 +67,8 @@ add_if_missing() { grep -q "^$1=" .env.prod || echo "$1=$2" >> .env.prod; }
 add_if_missing INTERNAL_AUTH_TOKEN "$(openssl rand -hex 24)"
 add_if_missing STREAM_TOKEN_SECRET "$(openssl rand -hex 32)"
 add_if_missing REGISTRATION_MODE invite
+add_if_missing GRAFANA_ADMIN_PASSWORD "$(openssl rand -hex 12)"
+add_if_missing GRAFANA_DOMAIN "monitor.$(grep '^API_DOMAIN=' .env.prod | cut -d= -f2 | sed 's/^api\.//')"
 add_if_missing ADMIN_DOMAIN "admin.$(grep '^API_DOMAIN=' .env.prod | cut -d= -f2 | sed 's/^api\.//')"
 for v in LINE_CHANNEL_ACCESS_TOKEN LINE_CHANNEL_SECRET LINE_BOT_BASIC_ID RESEND_API_KEY EMAIL_FROM; do add_if_missing $v ""; done
 

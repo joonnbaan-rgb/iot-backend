@@ -25,6 +25,8 @@ export interface Device {
 }
 
 export interface SensorPoint { id?: string; device_id: string; value: number; unit: string | null; recorded_at: string }
+export interface SummaryPoint { t: string; avg: number; min: number; max: number; n: number }
+export interface TelemetrySummary { bucket: string; from: string; to: string; unit: string | null; points: SummaryPoint[] }
 export type CommandStatus = 'pending' | 'success' | 'failed' | 'timeout';
 export interface DeviceCommand { id: string; device_id: string; action: string; status: CommandStatus; created_at: string }
 
