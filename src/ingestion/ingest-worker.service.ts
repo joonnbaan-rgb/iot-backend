@@ -247,9 +247,18 @@ export class IngestWorkerService implements OnModuleInit, OnModuleDestroy {
     }
 
     // ขั้นตอนหลังบันทึกสำเร็จ: ห้ามทำให้ batch ล้มเหลว (ไม่งั้นจะ retry)
+    const ta = process.hrtime.bigint();
     await this.afterPersist(persisted);
+    const afterSec = Number(process.hrtime.bigint() - ta) / 1e9;
+    this.metrics.ingestPhaseDuration.labels('after').observe(afterSec);
 
-    this.metrics.ingestBatchDuration.observe(Number(process.hrtime.bigint() - t0) / 1e9);
+    const totalSec = Number(process.hrtime.bigint() - t0) / 1e9;
+    this.metrics.ingestBatchDuration.observe(totalSec);
+    if (totalSec > 2) {
+      this.logger.warn(
+        `batch ช้า: ${totalSec.toFixed(2)}s สำหรับ ${entries.length} message (ขั้นหลังบันทึก realtime+rules ใช้ ${afterSec.toFixed(2)}s)`,
+      );
+    }
   }
 
   /**
@@ -259,6 +268,15 @@ export class IngestWorkerService implements OnModuleInit, OnModuleDestroy {
    * @returns แถวของอุปกรณ์ที่รู้จัก และรายการอุปกรณ์ (พร้อมสถานะก่อนหน้า) ไว้ประกาศหลัง commit
    */
   private async persist(rows: Row[]): Promise<{ rows: Row[]; devices: { id: string; name: string; prev_status: string }[] }> {
+    const tp = process.hrtime.bigint();
+    try {
+      return await this.persistInner(rows);
+    } finally {
+      this.metrics.ingestPhaseDuration.labels('db').observe(Number(process.hrtime.bigint() - tp) / 1e9);
+    }
+  }
+
+  private async persistInner(rows: Row[]): Promise<{ rows: Row[]; devices: { id: string; name: string; prev_status: string }[] }> {
     const ids = [...new Set(rows.map((r) => r.deviceId))];
     const now = new Date();
 

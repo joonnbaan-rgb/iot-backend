@@ -18,6 +18,7 @@ export class MetricsService implements OnModuleInit {
   public ingestBatchSize: client.Histogram<string>;
   public ingestBatchDuration: client.Histogram<string>;
   public ingestEndToEndLag: client.Histogram<string>;
+  public ingestPhaseDuration: client.Histogram<string>;
   public ingestStreamLength: client.Gauge<string>;
   public ingestPending: client.Gauge<string>;
 
@@ -94,6 +95,14 @@ export class MetricsService implements OnModuleInit {
       name: 'iot_ingest_end_to_end_lag_seconds',
       help: 'เวลาตั้งแต่ backend รับ message จาก MQTT จนบันทึกลง DB',
       buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 15, 60],
+      registers: [this.registry],
+    });
+
+    this.ingestPhaseDuration = new client.Histogram({
+      name: 'iot_ingest_phase_seconds',
+      help: 'เวลาแยกตามขั้นของ batch (phase=db: transaction ลง DB, after: realtime+rules, ack: XACK)',
+      labelNames: ['phase'],
+      buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
       registers: [this.registry],
     });
 

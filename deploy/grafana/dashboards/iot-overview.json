@@ -810,6 +810,52 @@
      }
     }
    ]
+  },
+  {
+   "id": 19,
+   "type": "timeseries",
+   "title": "Batch time by phase (p95)",
+   "description": "db = transaction ลง DB, after = realtime + rules, ack = XACK",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 30,
+    "w": 8,
+    "h": 8
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 10
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "histogram_quantile(0.95, sum(rate(iot_ingest_phase_seconds_bucket[5m])) by (le, phase))",
+     "legendFormat": "{{phase}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ]
   }
  ],
  "templating": {
