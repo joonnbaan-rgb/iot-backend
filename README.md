@@ -417,9 +417,9 @@ $body = @{ rtsp_url = "rtsp://user:pass@192.168.1.50:554/stream1" } | ConvertTo-
 Invoke-RestMethod -Uri "http://localhost:3000/devices/<CAMERA_ID>/camera" -Method Put -ContentType "application/json" -Body $body
 ```
 
-ถ้ายังไม่มีกล้องจริงแต่มี `ffmpeg` ติดตั้งไว้ ใช้คำสั่งนี้จำลองกล้อง publish วิดีโอทดสอบเข้า MediaMTX โดยตรง (ไม่ผ่าน backend เพราะ MediaMTX รับ publish เข้ามาตรงๆ ได้เลยถ้าตั้ง path ไว้):
+ถ้ายังไม่มีกล้องจริงแต่มี `ffmpeg` ติดตั้งไว้ ใช้คำสั่งนี้จำลองกล้อง publish วิดีโอทดสอบเข้า MediaMTX โดยตรง (ไม่ผ่าน backend เพราะ MediaMTX รับ publish เข้ามาตรงๆ ได้เลยถ้าตั้ง path ไว้) — ต้องส่งเข้า path ที่ตรงกับ `rtsp_url` ของอุปกรณ์ (เช่น `webcam`) ถ้าส่งเข้า id ของอุปกรณ์ตรงๆ MediaMTX จะปฏิเสธเมื่ออุปกรณ์ตั้ง `rtsp_url` ไว้แล้ว:
 ```bash
-ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=15 -c:v libx264 -f rtsp -rtsp_transport tcp rtsp://localhost:8554/<CAMERA_ID>
+ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=15 -c:v libx264 -f rtsp -rtsp_transport tcp rtsp://localhost:8554/webcam
 ```
 
 ### 7. ดู URL สำหรับเปิดสตรีม

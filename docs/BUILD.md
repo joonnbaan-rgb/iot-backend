@@ -138,14 +138,18 @@ npm run typecheck
 ```
 
 ## 7) ทดสอบกล้อง
+หลักการ: อุปกรณ์กล้องมี `rtsp_url` (เช่น `rtsp://localhost:8554/webcam`) backend จะสั่ง MediaMTX ให้ **ดึง** สตรีมจากที่อยู่นั้น
+ดังนั้นต้อง **ส่งภาพเข้า path ที่ตรงกับ `rtsp_url`** (ในตัวอย่างคือ `webcam`) ไม่ใช่ส่งเข้า path ที่เป็น id ของอุปกรณ์
+(ถ้าส่งเข้า id จะขึ้น log `can't publish ... since 'source' is not 'publisher'`)
 ```powershell
-# เว็บแคมของคอม
+# เว็บแคมของคอม (path เริ่มต้นคือ webcam)
 .\scripts\webcam-stream.ps1 -ListDevices
 .\scripts\webcam-stream.ps1
-# หรือภาพทดสอบสังเคราะห์ (ใส่ id กล้องจริง)
-ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=15 -c:v libx264 -pix_fmt yuv420p -g 30 -f rtsp -rtsp_transport tcp rtsp://localhost:8554/ID_ของกล้อง
+# หรือภาพทดสอบสังเคราะห์ (ไม่ต้องมีกล้อง) - ส่งเข้า path webcam
+ffmpeg -hide_banner -re -f lavfi -i testsrc=size=640x480:rate=15 -vf format=yuv420p -c:v libx264 -preset ultrafast -tune zerolatency -g 30 -b:v 1000k -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/webcam
 ```
 กล้องจริง: ตั้ง `rtsp_url` ของอุปกรณ์เป็น `rtsp://user:pass@IP:554/stream1`
+ดู log ถ้าไม่ขึ้นภาพ: `docker compose logs --tail 30 mediamtx`
 
 ## 8) Deploy บน cloud (Linux VPS, Docker)
 ดูรายละเอียดเต็มที่ `docs/DEPLOY-CLOUD.md` สรุป:
@@ -176,5 +180,5 @@ Web Admin อยู่ที่ `https://admin.<โดเมน>` (ฝัง `VI
 | แอปเชื่อมต่อ backend ไม่ได้ | IP ใน mobile `.env` ผิด/เป็น localhost → แก้แล้ว build APK ใหม่; ตรวจ firewall พอร์ต 3000 |
 | แก้ `.env` แล้วไม่เปลี่ยน (web-admin/แอป) | ค่าถูกฝังตอน build/start → รัน `npm run dev` ใหม่ หรือ build ใหม่ |
 | backend ขึ้น error ตาราง/คอลัมน์ไม่มี | ยังไม่ได้รัน migration (ข้อ 2.4) |
-| ภาพกล้องไม่ขึ้น | ffmpeg ต้องยังรันอยู่, id ต้องตรงกับอุปกรณ์, พอร์ต 8554/8888 เปิดอยู่ |
+| ภาพกล้องไม่ขึ้น | ffmpeg ต้องยังรันอยู่ และส่งเข้า path เดียวกับ `rtsp_url` ของอุปกรณ์ (ดูข้อ 7), พอร์ต 8554/8888 เปิดอยู่ |
 | `docker compose` ต่อ Docker ไม่ได้ | เปิด Docker Desktop และรอจน engine พร้อม |
