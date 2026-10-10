@@ -50,10 +50,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      # ใช้ npm install แทน npm ci ชั่วคราว: เฟส H เพิ่ม ioredis แต่ package-lock.json ยังไม่ถูกอัปเดต
-      # (รัน npm install บนเครื่อง แล้ว commit package-lock.json จากนั้นเปลี่ยนกลับเป็น npm ci)
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci
 
       - name: Lint
         run: npm run lint --if-present
@@ -80,8 +78,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      # ยังไม่มี package-lock.json ใน web-admin จึงใช้ npm install
-      - run: npm install
+          cache: 'npm'
+          cache-dependency-path: web-admin/package-lock.json
+      - run: npm ci
       - run: npm run build
         env:
           VITE_API_BASE_URL: http://localhost:3000
