@@ -12,3 +12,6 @@ deploy/mediamtx.prod.yml
 deploy/backups/
 web-admin/dist/
 web-admin/.env
+
+# IDE
+.idea/
