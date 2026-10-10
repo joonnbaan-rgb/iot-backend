@@ -27,6 +27,7 @@ export class IngestQueueService implements OnModuleDestroy {
     this.maxLen = parseInt(this.config.get<string>('INGEST_STREAM_MAXLEN', '200000'), 10);
     if (this.mode === 'stream') {
       this.logger.log(`INGEST_MODE=stream (คิว ${INGEST_STREAM}, trim ~${this.maxLen})`);
+      this.client(); // เชื่อม Redis ล่วงหน้า ไม่งั้นข้อความแรก ๆ หลังเริ่มระบบจะ fallback เพราะยังต่อไม่เสร็จ
     }
   }
 
