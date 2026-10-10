@@ -6,6 +6,7 @@ import { AddDeviceScreen } from '@/screens/AddDeviceScreen';
 import { EditDeviceScreen } from '@/screens/EditDeviceScreen';
 import { GroupsScreen } from '@/screens/GroupsScreen';
 import { GroupEditScreen } from '@/screens/GroupEditScreen';
+import { FloorPlanScreen } from '@/screens/FloorPlanScreen';
 import { SitesScreen } from '@/screens/SitesScreen';
 import { SiteDetailScreen } from '@/screens/SiteDetailScreen';
 import { SharingScreen } from '@/screens/SharingScreen';
@@ -35,6 +36,7 @@ export function DevicesNavigator() {
       <Stack.Screen name="EditDevice" component={EditDeviceScreen} options={{ title: 'แก้ไขอุปกรณ์' }} />
       <Stack.Screen name="Groups" component={GroupsScreen} options={{ title: 'กลุ่มอุปกรณ์' }} />
       <Stack.Screen name="GroupEdit" component={GroupEditScreen} options={{ title: 'กลุ่ม' }} />
+      <Stack.Screen name="FloorPlan" component={FloorPlanScreen} options={{ title: 'แผนผังอุปกรณ์' }} />
       <Stack.Screen name="Sites" component={SitesScreen} options={{ title: 'ไซต์' }} />
       <Stack.Screen name="SiteDetail" component={SiteDetailScreen} options={{ title: 'ไซต์' }} />
       <Stack.Screen name="Sharing" component={SharingScreen} options={{ title: 'การแชร์' }} />

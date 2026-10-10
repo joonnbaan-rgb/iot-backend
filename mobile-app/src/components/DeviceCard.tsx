@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '@/theme';
 import { StatusBadge } from './StatusBadge';
+import { DeviceIcon, inferIcon } from './DeviceIcon';
 import type { Device } from '@/types/api';
 
 const TYPE_LABEL_TH: Record<Device['type'], string> = {
@@ -25,6 +26,9 @@ export function DeviceCard({ device, onPress }: { device: Device; onPress: () =>
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <View style={styles.row}>
+        <View style={styles.iconBox}>
+          <DeviceIcon icon={inferIcon(device)} type={device.type} size={22} />
+        </View>
         <View style={styles.flex}>
           <Text style={styles.name}>{device.name}</Text>
           <Text style={styles.meta}>
@@ -56,6 +60,15 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   row: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   flex: { flex: 1, marginRight: spacing.sm },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
   name: { color: colors.textPrimary, fontSize: 17, fontWeight: '600', marginBottom: 2 },
   meta: { color: colors.textSecondary, fontSize: 13 },
   shared: { color: colors.primary, fontSize: 12, marginTop: spacing.xs },

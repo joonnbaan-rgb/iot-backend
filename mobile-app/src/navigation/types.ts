@@ -10,6 +10,7 @@ export type DevicesStackParamList = {
   EditDevice: { deviceId: string };
   Groups: undefined;
   GroupEdit: { groupId?: string };
+  FloorPlan: undefined;
   Sites: undefined;
   SiteDetail: { siteId: string };
   Sharing: undefined;
