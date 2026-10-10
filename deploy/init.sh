@@ -43,8 +43,17 @@ REGISTRATION_MODE=invite
 RTSP_PUBLISH_USER=publisher
 RTSP_PUBLISH_PASS=$(rnd 16)
 
+# แจ้งเตือน: Telegram bot (สร้างจาก @BotFather) ผู้ใช้แต่ละคนผูกบัญชีของตัวเองในแอป
 TELEGRAM_BOT_TOKEN=
+# (ไม่บังคับ) chat กลางที่รับทุกเหตุการณ์ของระบบ
 TELEGRAM_CHAT_ID=
+# LINE Messaging API (LINE Notify ปิดบริการแล้ว) สร้างช่องที่ https://developers.line.biz
+LINE_CHANNEL_ACCESS_TOKEN=
+LINE_CHANNEL_SECRET=
+LINE_BOT_BASIC_ID=
+# อีเมลผ่าน Resend (https://resend.com) EMAIL_FROM เช่น "IoT <alerts@example.com>"
+RESEND_API_KEY=
+EMAIL_FROM=
 ENV
   chmod 600 .env.prod
   echo "สร้าง deploy/.env.prod แล้ว (เก็บเป็นความลับ และสำรองไว้ที่ปลอดภัย)"
@@ -55,6 +64,7 @@ add_if_missing() { grep -q "^$1=" .env.prod || echo "$1=$2" >> .env.prod; }
 add_if_missing INTERNAL_AUTH_TOKEN "$(openssl rand -hex 24)"
 add_if_missing STREAM_TOKEN_SECRET "$(openssl rand -hex 32)"
 add_if_missing REGISTRATION_MODE invite
+for v in LINE_CHANNEL_ACCESS_TOKEN LINE_CHANNEL_SECRET LINE_BOT_BASIC_ID RESEND_API_KEY EMAIL_FROM; do add_if_missing $v ""; done
 
 set -a; . ./.env.prod; set +a
 

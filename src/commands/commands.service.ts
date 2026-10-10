@@ -125,6 +125,7 @@ export class CommandsService {
       await this.notificationsService.notify(
         'command_timeout',
         `⏱️ คำสั่ง "${command.action}" ไปยังอุปกรณ์ ${command.device_id} หมดเวลา ไม่ได้รับการตอบกลับจากอุปกรณ์`,
+        { deviceId: command.device_id },
       );
     }
   }

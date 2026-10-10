@@ -106,3 +106,19 @@ Invoke-RestMethod https://api.example.com/invites -Method Post -Headers @{Author
 **สตรีมกล้อง (HLS) ต้องมีโทเคน** — ลิงก์ที่แอปได้รับมีโทเคนอายุ 12 ชั่วโมงฝังใน path (`STREAM_TOKEN_TTL_SECONDS` ปรับได้) ทุกคำขอถูก Caddy ส่งไปตรวจที่ backend ก่อน ผู้ที่รู้แค่ device id ดูสตรีมไม่ได้อีกต่อไป
 
 **ยังไม่ได้ทำ:** RTSPS สำหรับเส้นทางส่งภาพกล้องขึ้น cloud (ตอนนี้ RTSP ธรรมดา ต้องมี user/password), MQTT ACL รายผู้ใช้สำหรับ client อื่นนอกจากอุปกรณ์และ backend
+
+## 8) การแจ้งเตือนหลายช่องทาง (เฟส F)
+
+การแจ้งเตือนส่งถึง "ผู้ที่มีสิทธิ์เห็นอุปกรณ์นั้น" (เจ้าของ ผู้ถูกแชร์ สมาชิกไซต์ และเจ้าของ rule) แต่ละคนผูกช่องทางของตัวเองในแอป: แท็บ แจ้งเตือน → ตั้งค่า
+เลือกเหตุการณ์ที่ต้องการ และตั้งช่วงเวลาเงียบได้ (ช่วงเงียบยังบันทึกในแอป แต่ไม่ส่งออกภายนอก)
+
+เซิร์ฟเวอร์ต้องตั้งค่าใน `deploy/.env.prod` (แล้ว `docker compose ... up -d` ใหม่):
+
+| ช่องทาง | ตัวแปร | วิธีได้ค่า |
+|---|---|---|
+| Telegram | `TELEGRAM_BOT_TOKEN` | คุยกับ @BotFather พิมพ์ `/newbot` ผู้ใช้กด "+ Telegram" ในแอปแล้วเปิดบอตเพื่อผูกบัญชี ไม่ต้องตั้ง webhook |
+| LINE | `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET`, `LINE_BOT_BASIC_ID` | สร้าง Messaging API channel ที่ https://developers.line.biz แล้วตั้ง Webhook URL เป็น `https://api.<โดเมน>/integrations/line/webhook` เปิด "Use webhook" (LINE Notify ปิดบริการแล้ว จึงใช้ Messaging API) |
+| อีเมล | `RESEND_API_KEY`, `EMAIL_FROM` | สมัคร https://resend.com ยืนยันโดเมนผู้ส่ง ส่งได้เฉพาะอีเมลของบัญชีผู้ใช้เอง |
+| ช่องกลาง (ไม่บังคับ) | `TELEGRAM_CHAT_ID` | ถ้าตั้ง ทุกเหตุการณ์ของระบบจะเข้า chat นี้ด้วย |
+
+หมายเหตุ: LINE Messaging API แผนฟรีจำกัดจำนวนข้อความ push ต่อเดือน ตรวจโควตาปัจจุบันที่ LINE Developers ก่อนใช้งานจริง

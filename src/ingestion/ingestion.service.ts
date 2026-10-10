@@ -106,6 +106,7 @@ export class IngestionService {
       await this.notificationsService.notify(
         'device_offline',
         `⚠️ อุปกรณ์ "${device.name}" (${device.id}) ออฟไลน์ — ไม่มีข้อมูลเข้ามาเกิน ${thresholdSeconds} วินาที`,
+        { deviceId: device.id },
       );
     }
   }

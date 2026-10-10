@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { DevicesNavigator } from './DevicesNavigator';
-import { NotificationsScreen } from '@/screens/NotificationsScreen';
+import { NotificationsNavigator } from './NotificationsNavigator';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { colors } from '@/theme';
 import type { RootTabParamList } from './types';
@@ -29,7 +29,7 @@ export function RootNavigator() {
       })}
     >
       <Tab.Screen name="DevicesTab" component={DevicesNavigator} options={{ title: 'อุปกรณ์' }} />
-      <Tab.Screen name="NotificationsTab" component={NotificationsScreen} options={{ title: 'แจ้งเตือน' }} />
+      <Tab.Screen name="NotificationsTab" component={NotificationsNavigator} options={{ title: 'แจ้งเตือน' }} />
       <Tab.Screen name="ProfileTab" component={ProfileScreen} options={{ title: 'บัญชี' }} />
     </Tab.Navigator>
   );

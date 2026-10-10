@@ -14,7 +14,9 @@ import type {
   SiteRole,
   NotificationLog,
   SensorDataPoint,
+  LinkCode,
   MqttCredentials,
+  NotificationSettingsView,
   User,
 } from '@/types/api';
 
@@ -90,6 +92,19 @@ export const camerasApi = {
 export const notificationsApi = {
   recent: (limit?: number) =>
     apiClient.get<NotificationLog[]>('/notifications', { params: { limit } }).then((r) => r.data),
+  settings: () => apiClient.get<NotificationSettingsView>('/notifications/settings').then((r) => r.data),
+  saveSettings: (body: { events?: string[]; quiet_start?: number | null; quiet_end?: number | null }) =>
+    apiClient.put<NotificationSettingsView>('/notifications/settings', body).then((r) => r.data),
+  addEmail: () => apiClient.post<NotificationSettingsView>('/notifications/channels/email').then((r) => r.data),
+  linkCode: (type: 'telegram' | 'line') =>
+    apiClient.post<LinkCode>(`/notifications/channels/${type}/link-code`).then((r) => r.data),
+  setChannel: (id: string, enabled: boolean) =>
+    apiClient.patch<NotificationSettingsView>(`/notifications/channels/${id}`, { enabled }).then((r) => r.data),
+  removeChannel: (id: string) => apiClient.delete(`/notifications/channels/${id}`).then(() => undefined),
+  test: () =>
+    apiClient
+      .post<{ channel: string; target: string; ok: boolean; error?: string }[]>('/notifications/test')
+      .then((r) => r.data),
 };
 
 export const groupsApi = {

@@ -12,7 +12,11 @@ export class NotificationLog {
   id: string;
 
   @Column()
-  channel: string; // 'telegram'
+  channel: string; // 'app' | 'telegram' | 'line' | 'email'
+
+  // ผู้รับ (NULL = ช่องทางระบบกลางแบบเดิม)
+  @Column({ type: 'uuid', nullable: true })
+  user_id: string | null;
 
   @Column()
   event_type: string; // 'device_offline' | 'rule_triggered' | 'command_timeout'

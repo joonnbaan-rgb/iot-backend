@@ -22,3 +22,8 @@ export type RootTabParamList = {
   NotificationsTab: undefined;
   ProfileTab: undefined;
 };
+
+export type NotificationsStackParamList = {
+  NotificationsList: undefined;
+  NotificationSettings: undefined;
+};

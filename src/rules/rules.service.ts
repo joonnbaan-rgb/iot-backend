@@ -147,6 +147,7 @@ export class RulesService {
         await this.notificationsService.notify(
           'rule_triggered',
           `🔔 Rule "${rule.name ?? rule.id}" ทำงาน: ค่า ${value} ${rule.operator} ${rule.threshold} → สั่ง "${rule.action}"`,
+          { deviceId: rule.target_device_id, userIds: rule.owner_id ? [rule.owner_id] : [] },
         );
       } catch (err) {
         this.logger.error(`rule ${rule.id} สั่งงานล้มเหลว: ${err.message}`);

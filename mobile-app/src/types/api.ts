@@ -148,3 +148,27 @@ export interface MqttCredentials {
   publish_topics: string[];
   subscribe_topics: string[];
 }
+
+export interface NotificationChannelView {
+  id: string;
+  type: 'telegram' | 'line' | 'email';
+  label: string;
+  enabled: boolean;
+}
+
+export interface NotificationSettingsView {
+  providers: { telegram: boolean; line: boolean; email: boolean };
+  account_email: string | null;
+  all_events: string[];
+  events: string[];
+  quiet_start: number | null;
+  quiet_end: number | null;
+  channels: NotificationChannelView[];
+}
+
+export interface LinkCode {
+  code: string;
+  expires_at: string;
+  open_url: string | null;
+  instructions: string;
+}

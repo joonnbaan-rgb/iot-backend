@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Button } from '@/components/Button';
+import type { NotificationsStackParamList } from '@/navigation/types';
 import { notificationsApi } from '@/api/endpoints';
 import { extractErrorMessage } from '@/api/client';
 import { getSocket, type RuleTriggeredEvent } from '@/realtime/socket';
@@ -14,7 +17,17 @@ const EVENT_LABEL_TH: Record<string, string> = {
   command_timeout: 'คำสั่งหมดเวลา',
 };
 
-export function NotificationsScreen() {
+const CHANNEL_LABEL: Record<string, string> = {
+  app: 'ในแอป',
+  telegram: 'Telegram',
+  line: 'LINE',
+  email: 'อีเมล',
+  realtime: 'สด',
+};
+
+type Props = NativeStackScreenProps<NotificationsStackParamList, 'NotificationsList'>;
+
+export function NotificationsScreen({ navigation }: Props) {
   const [items, setItems] = useState<NotificationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,7 +81,10 @@ export function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>การแจ้งเตือน</Text>
+      <View style={styles.headRow}>
+        <Text style={styles.title}>การแจ้งเตือน</Text>
+        <Button title="ตั้งค่า" variant="secondary" onPress={() => navigation.navigate('NotificationSettings')} />
+      </View>
 
       {!!error && (
         <View style={styles.errorBox}>
@@ -84,7 +100,9 @@ export function NotificationsScreen() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={styles.eventType}>{EVENT_LABEL_TH[item.event_type] ?? item.event_type}</Text>
+              <Text style={styles.eventType}>
+                {EVENT_LABEL_TH[item.event_type] ?? item.event_type} · {CHANNEL_LABEL[item.channel] ?? item.channel}
+              </Text>
               <StatusBadge status={item.status} />
             </View>
             <Text style={styles.message}>{item.message}</Text>
@@ -105,6 +123,7 @@ export function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: spacing.md },
+  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', paddingVertical: spacing.md },
   listContent: { paddingBottom: spacing.xl },
   card: {
