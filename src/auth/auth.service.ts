@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { ensurePersonalSite } from '../sites/personal-site';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -46,6 +47,7 @@ export class AuthService {
 
     const user = this.userRepository.create({ email: dto.email, password_hash, role });
     await this.userRepository.save(user);
+    await ensurePersonalSite(this.userRepository.manager, user.id);
 
     const { password_hash: _omit, ...safeUser } = user;
     return safeUser;

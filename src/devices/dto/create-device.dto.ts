@@ -1,4 +1,4 @@
-import { IsEnum, IsIn, IsIP, IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { IsEnum, IsIn, IsIP, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 import { DeviceType } from '../entities/device.entity';
 
 export class CreateDeviceDto {
@@ -29,4 +29,9 @@ export class CreateDeviceDto {
   @IsOptional()
   @IsIP(4)
   connection_host?: string;
+
+  // ไซต์ที่จะวางอุปกรณ์ (ไม่ระบุ = ไซต์ส่วนตัวของผู้สร้าง)
+  @IsOptional()
+  @IsUUID()
+  site_id?: string;
 }

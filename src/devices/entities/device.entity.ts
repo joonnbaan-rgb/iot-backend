@@ -53,6 +53,11 @@ export class Device {
   @Column({ type: 'uuid', nullable: true })
   owner_id: string | null;
 
+  // ไซต์ที่อุปกรณ์สังกัด (NULL = ไม่สังกัด)
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  site_id: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

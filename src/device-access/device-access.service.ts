@@ -45,6 +45,9 @@ const SHARE_COVERS_DEVICE = `
           SELECT 1 FROM device_group_members m WHERE m.group_id = s.group_id AND m.device_id = d.id))
   )`;
 
+/** ระดับสิทธิ์จาก role ในไซต์ (SQL: lvl 3=admin 2=operator 1=viewer) */
+const SITE_LVL = `CASE sm.role WHEN 'admin' THEN 3 WHEN 'operator' THEN 2 ELSE 1 END`;
+
 @Injectable()
 export class DeviceAccessService {
   constructor(
@@ -67,14 +70,25 @@ export class DeviceAccessService {
   async levelFor(user: CurrentUserPayload, device: Device): Promise<AccessLevel | null> {
     if (user.role === UserRole.ADMIN) return 'admin';
     if (device.owner_id && device.owner_id === user.sub) return 'owner';
-    if (!device.owner_id) return null;
+    // สิทธิ์จากการเป็นสมาชิกไซต์ที่อุปกรณ์สังกัด (admin ไซต์ = จัดการได้เหมือนเจ้าของ)
+    let siteLvl = 0;
+    if (device.site_id) {
+      const sr: { lvl: number }[] = await this.deviceRepository.query(
+        `SELECT ${SITE_LVL} AS lvl FROM site_members sm WHERE sm.site_id = $1 AND sm.user_id = $2`,
+        [device.site_id, user.sub],
+      );
+      siteLvl = sr[0]?.lvl ?? 0;
+    }
+    if (siteLvl === 3) return 'owner';
+    if (!device.owner_id) return siteLvl === 2 ? 'control' : siteLvl === 1 ? 'view' : null;
     const rows: { permission: string }[] = await this.deviceRepository.query(
       `SELECT s.permission FROM device_shares s, devices d
         WHERE d.id = $1 AND s.shared_with_id = $2 AND ${SHARE_COVERS_DEVICE}`,
       [device.id, user.sub],
     );
-    if (rows.length === 0) return null;
-    return rows.some((r) => r.permission === 'control') ? 'control' : 'view';
+    const shareLvl = rows.length === 0 ? 0 : rows.some((r) => r.permission === 'control') ? 2 : 1;
+    const best = Math.max(shareLvl, siteLvl);
+    return best === 2 ? 'control' : best === 1 ? 'view' : null;
   }
 
   /**
@@ -123,10 +137,15 @@ export class DeviceAccessService {
     );
 
     const shared: { id: string; lvl: number }[] = await this.deviceRepository.query(
-      `SELECT d.id, MAX(CASE s.permission WHEN 'control' THEN 2 ELSE 1 END)::int AS lvl
-         FROM devices d JOIN device_shares s ON s.shared_with_id = $1 AND ${SHARE_COVERS_DEVICE}
-        WHERE d.owner_id <> $1
-        GROUP BY d.id`,
+      `SELECT id, MAX(lvl)::int AS lvl FROM (
+         SELECT d.id, CASE s.permission WHEN 'control' THEN 2 ELSE 1 END AS lvl
+           FROM devices d JOIN device_shares s ON s.shared_with_id = $1 AND ${SHARE_COVERS_DEVICE}
+          WHERE d.owner_id <> $1
+         UNION ALL
+         SELECT d.id, ${SITE_LVL} AS lvl
+           FROM devices d JOIN site_members sm ON sm.site_id = d.site_id AND sm.user_id = $1
+          WHERE d.owner_id IS DISTINCT FROM $1
+       ) t GROUP BY id`,
       [user.sub],
     );
     if (shared.length > 0) {
@@ -141,7 +160,8 @@ export class DeviceAccessService {
       });
       const emailById = new Map(owners.map((o) => [o.id, o.email]));
       for (const d of devices) {
-        const level: AccessLevel = lvlById.get(d.id) === 2 ? 'control' : 'view';
+        const l = lvlById.get(d.id) ?? 1;
+        const level: AccessLevel = l >= 3 ? 'owner' : l === 2 ? 'control' : 'view';
         this.redact(d, level);
         result.push(
           Object.assign(d, {
@@ -157,13 +177,17 @@ export class DeviceAccessService {
   /** user id ทั้งหมดที่ควรได้รับ event ของอุปกรณ์นี้ (ไม่รวม admin ซึ่งอยู่ในห้อง admins อยู่แล้ว) */
   async audienceUserIds(deviceId: string): Promise<string[]> {
     const device = await this.deviceRepository.findOne({ where: { id: deviceId } });
-    if (!device?.owner_id) return [];
-    const rows: { shared_with_id: string }[] = await this.deviceRepository.query(
-      `SELECT DISTINCT s.shared_with_id FROM device_shares s, devices d
-        WHERE d.id = $1 AND ${SHARE_COVERS_DEVICE}`,
-      [deviceId],
+    if (!device) return [];
+    const rows: { uid: string }[] = await this.deviceRepository.query(
+      `SELECT DISTINCT s.shared_with_id AS uid FROM device_shares s, devices d
+        WHERE d.id = $1 AND ${SHARE_COVERS_DEVICE}
+       UNION
+       SELECT sm.user_id FROM site_members sm WHERE sm.site_id = $2`,
+      [deviceId, device.site_id],
     );
-    return [device.owner_id, ...rows.map((r) => r.shared_with_id)];
+    const ids = rows.map((r) => r.uid);
+    if (device.owner_id) ids.push(device.owner_id);
+    return [...new Set(ids)];
   }
 
   /**
@@ -177,6 +201,9 @@ export class DeviceAccessService {
         UNION ALL
         SELECT s.shared_with_id, d.id, CASE s.permission WHEN 'control' THEN 2 ELSE 1 END
           FROM device_shares s JOIN devices d ON ${SHARE_COVERS_DEVICE}
+        UNION ALL
+        SELECT sm.user_id, d.id, ${SITE_LVL}
+          FROM site_members sm JOIN devices d ON d.site_id = sm.site_id
       )
       DELETE FROM rules r USING users u
        WHERE u.id = r.owner_id AND u.role <> 'admin'

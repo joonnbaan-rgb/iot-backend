@@ -8,6 +8,10 @@ import type {
   DiscoveredDevice,
   Share,
   SharePermission,
+  Site,
+  SiteKind,
+  SiteMember,
+  SiteRole,
   NotificationLog,
   SensorDataPoint,
   User,
@@ -42,6 +46,7 @@ export const devicesApi = {
     rtsp_url?: string;
     connection_protocol?: 'tasmota' | 'sonoff_diy' | 'rtsp';
     connection_host?: string;
+    site_id?: string;
   }) =>
     apiClient.post<Device>('/devices', body).then((r) => r.data),
 
@@ -115,4 +120,19 @@ export const discoveryApi = {
         timeout: 90000,
       })
       .then((r) => r.data),
+};
+
+export const sitesApi = {
+  list: () => apiClient.get<Site[]>('/sites').then((r) => r.data),
+  create: (body: { name: string; kind: SiteKind }) => apiClient.post<Site>('/sites', body).then((r) => r.data),
+  update: (id: string, body: { name?: string; kind?: SiteKind }) =>
+    apiClient.patch<Site>(`/sites/${id}`, body).then((r) => r.data),
+  remove: (id: string) => apiClient.delete(`/sites/${id}`).then(() => undefined),
+  members: (id: string) => apiClient.get<SiteMember[]>(`/sites/${id}/members`).then((r) => r.data),
+  addMember: (id: string, body: { email: string; role: SiteRole }) =>
+    apiClient.post<SiteMember[]>(`/sites/${id}/members`, body).then((r) => r.data),
+  setRole: (id: string, userId: string, role: SiteRole) =>
+    apiClient.patch<SiteMember[]>(`/sites/${id}/members/${userId}`, { role }).then((r) => r.data),
+  removeMember: (id: string, userId: string) =>
+    apiClient.delete(`/sites/${id}/members/${userId}`).then(() => undefined),
 };

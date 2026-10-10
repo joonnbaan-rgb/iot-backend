@@ -27,6 +27,7 @@ export interface Device {
   last_seen_at: string | null;
   rtsp_url: string | null;
   owner_id?: string | null;
+  site_id?: string | null;
   // อีเมลเจ้าของ (มีเฉพาะอุปกรณ์ที่ถูกแชร์มาให้)
   owner_email?: string | null;
   // ระดับสิทธิ์ของผู้ใช้ปัจจุบันต่ออุปกรณ์นี้ (backend คำนวณให้)
@@ -113,4 +114,24 @@ export interface ApiErrorBody {
   statusCode: number;
   message: string | string[];
   error?: string;
+}
+
+export type SiteKind = 'home' | 'farm' | 'factory';
+export type SiteRole = 'admin' | 'operator' | 'viewer';
+
+export interface Site {
+  id: string;
+  name: string;
+  kind: SiteKind;
+  is_personal: boolean;
+  my_role: SiteRole;
+  member_count: number;
+  device_count: number;
+}
+
+export interface SiteMember {
+  user_id: string;
+  email: string;
+  role: SiteRole;
+  created_at: string;
 }

@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { devicesApi, discoveryApi } from '@/api/endpoints';
+import { devicesApi, discoveryApi, sitesApi } from '@/api/endpoints';
 import { extractErrorMessage } from '@/api/client';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { colors, radius, spacing } from '@/theme';
-import type { Device, DiscoveredDevice } from '@/types/api';
+import { Segmented } from '@/components/Segmented';
+import type { Device, DiscoveredDevice, Site } from '@/types/api';
 import type { DevicesStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<DevicesStackParamList, 'AddDevice'>;
@@ -27,6 +28,20 @@ export function AddDeviceScreen({ navigation }: Props) {
   const [scanned, setScanned] = useState<DiscoveredDevice[] | null>(null);
   const [subnet, setSubnet] = useState('');
   const [paired, setPaired] = useState<DiscoveredDevice | null>(null);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [siteId, setSiteId] = useState<string>('');
+
+  // ไซต์ที่เราเป็นผู้ดูแล (วางอุปกรณ์ได้) ค่าเริ่มต้น = ไซต์แรก (ไซต์ส่วนตัว)
+  useEffect(() => {
+    sitesApi
+      .list()
+      .then((all) => {
+        const mine = all.filter((s) => s.my_role === 'admin');
+        setSites(mine);
+        if (mine.length > 0) setSiteId(mine[0].id);
+      })
+      .catch(() => undefined);
+  }, []);
 
   async function scan() {
     setScanning(true);
@@ -68,6 +83,7 @@ export function AddDeviceScreen({ navigation }: Props) {
         rtsp_url: type === 'camera' && rtspUrl.trim() ? rtspUrl.trim() : undefined,
         connection_protocol: paired ? (paired.kind === 'ip_camera' ? 'rtsp' : paired.kind) : undefined,
         connection_host: paired?.ip,
+        site_id: siteId || undefined,
       });
       Alert.alert('สำเร็จ', 'เพิ่มอุปกรณ์เรียบร้อยแล้ว', [
         { text: 'ตกลง', onPress: () => navigation.goBack() },
@@ -117,6 +133,13 @@ export function AddDeviceScreen({ navigation }: Props) {
         </View>
 
         <TextField label="ชื่ออุปกรณ์" value={name} onChangeText={setName} placeholder="เช่น เซนเซอร์อุณหภูมิห้องนั่งเล่น" />
+
+        {sites.length > 1 && (
+          <>
+            <Text style={styles.label}>ไซต์</Text>
+            <Segmented value={siteId} onChange={setSiteId} options={sites.map((x) => ({ value: x.id, label: x.name }))} />
+          </>
+        )}
 
         <Text style={styles.label}>ประเภทอุปกรณ์</Text>
         <View style={styles.typeRow}>

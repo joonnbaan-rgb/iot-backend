@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 // แก้ได้เฉพาะชื่อกับตำแหน่ง: type เปลี่ยนไม่ได้ (จะทำให้ข้อมูล telemetry/คำสั่งเดิมไม่ตรงกับชนิดอุปกรณ์)
 // ส่วน RTSP source ของกล้องตั้งผ่าน PUT /devices/:id/camera
@@ -13,4 +13,9 @@ export class UpdateDeviceDto {
   @IsString()
   @MaxLength(128)
   location?: string;
+
+  // ย้ายอุปกรณ์ไปไซต์อื่น (ต้องเป็นผู้ดูแลทั้งอุปกรณ์และไซต์ปลายทาง)
+  @IsOptional()
+  @IsUUID()
+  site_id?: string;
 }

@@ -92,6 +92,7 @@ export function DevicesListScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.toolbar}>
+        <Button title="ไซต์" variant="secondary" onPress={() => navigation.navigate('Sites')} style={styles.toolBtn} />
         <Button title="กลุ่ม" variant="secondary" onPress={() => navigation.navigate('Groups')} style={styles.toolBtn} />
         <Button title="การแชร์" variant="secondary" onPress={() => navigation.navigate('Sharing')} style={styles.toolBtn} />
       </View>
