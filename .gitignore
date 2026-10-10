@@ -1,4 +1,3 @@
-@"
 node_modules/
 dist/
 .env
@@ -11,3 +10,5 @@ deploy/.env.prod
 deploy/emqx/auth.csv
 deploy/mediamtx.prod.yml
 deploy/backups/
+web-admin/dist/
+web-admin/.env

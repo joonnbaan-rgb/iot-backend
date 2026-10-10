@@ -122,3 +122,12 @@ Invoke-RestMethod https://api.example.com/invites -Method Post -Headers @{Author
 | ช่องกลาง (ไม่บังคับ) | `TELEGRAM_CHAT_ID` | ถ้าตั้ง ทุกเหตุการณ์ของระบบจะเข้า chat นี้ด้วย |
 
 หมายเหตุ: LINE Messaging API แผนฟรีจำกัดจำนวนข้อความ push ต่อเดือน ตรวจโควตาปัจจุบันที่ LINE Developers ก่อนใช้งานจริง
+
+## 9) Web Admin (เฟส G)
+
+1. เพิ่ม DNS record `admin.<โดเมน>` ชี้ IP เดียวกับ `api.<โดเมน>`
+2. ถ้า `.env.prod` มีอยู่แล้ว รัน `bash deploy/init.sh` อีกครั้งเพื่อเติม `ADMIN_DOMAIN` (หรือเพิ่มเองเป็น `ADMIN_DOMAIN=admin.<โดเมน>`)
+3. `docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build`
+4. เปิด `https://admin.<โดเมน>` แล้วล็อกอินด้วยบัญชี admin (เมนู "ผู้ดูแล" เห็นเฉพาะ admin)
+
+หมายเหตุ: `VITE_API_BASE_URL` ถูกฝังตอน build — ถ้าเปลี่ยน API_DOMAIN ต้อง build webadmin ใหม่

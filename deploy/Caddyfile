@@ -11,6 +11,12 @@
 	reverse_proxy backend:3000
 }
 
+# Web Admin (React SPA)
+{$ADMIN_DOMAIN} {
+	encode gzip
+	reverse_proxy webadmin:80
+}
+
 # สตรีมกล้อง (HLS) — ต้องมีโทเคนอายุจำกัดใน path: /s/{token}/{deviceId}/index.m3u8
 # ทุกคำขอ (playlist และ segment) ถูกส่งไปตรวจที่ backend ก่อน (route = ทำตามลำดับที่เขียน)
 {$STREAM_DOMAIN} {

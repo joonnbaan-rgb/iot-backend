@@ -18,6 +18,7 @@ if [ ! -f .env.prod ]; then
   cat > .env.prod <<ENV
 API_DOMAIN=api.${DOMAIN}
 STREAM_DOMAIN=stream.${DOMAIN}
+ADMIN_DOMAIN=admin.${DOMAIN}
 MQTT_DOMAIN=mqtt.${DOMAIN}
 ACME_EMAIL=${EMAIL}
 
@@ -64,6 +65,7 @@ add_if_missing() { grep -q "^$1=" .env.prod || echo "$1=$2" >> .env.prod; }
 add_if_missing INTERNAL_AUTH_TOKEN "$(openssl rand -hex 24)"
 add_if_missing STREAM_TOKEN_SECRET "$(openssl rand -hex 32)"
 add_if_missing REGISTRATION_MODE invite
+add_if_missing ADMIN_DOMAIN "admin.$(grep '^API_DOMAIN=' .env.prod | cut -d= -f2 | sed 's/^api\.//')"
 for v in LINE_CHANNEL_ACCESS_TOKEN LINE_CHANNEL_SECRET LINE_BOT_BASIC_ID RESEND_API_KEY EMAIL_FROM; do add_if_missing $v ""; done
 
 set -a; . ./.env.prod; set +a
