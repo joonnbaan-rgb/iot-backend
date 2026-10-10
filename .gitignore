@@ -6,4 +6,8 @@ dist/
 backups/
 phase8/nginx/certs/*.crt
 phase8/nginx/certs/*.key
-"@ | Out-File -Encoding utf8 .gitignore
+recordings/
+deploy/.env.prod
+deploy/emqx/auth.csv
+deploy/mediamtx.prod.yml
+deploy/backups/

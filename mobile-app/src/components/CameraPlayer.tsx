@@ -16,6 +16,11 @@ const RETRY_DELAY_MS = 3000;
 export function toReachableUrl(url: string): string {
   const apiHost = API_BASE_URL.match(/^https?:\/\/([^/:]+)/)?.[1];
   if (!apiHost) return url;
+  // เปลี่ยน host เฉพาะ URL ที่ชี้ localhost / IP ในวง LAN (โหมดทดสอบในบ้าน)
+  // ถ้าเป็นโดเมนจริงบน cloud (https://stream.example.com) ใช้ตามที่ backend ส่งมาเลย
+  const host = url.match(/^https?:\/\/([^/:]+)/)?.[1] ?? '';
+  const isLocal = host === 'localhost' || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
+  if (!isLocal) return url;
   return url.replace(/^(https?:\/\/)[^/:]+/, `$1${apiHost}`);
 }
 

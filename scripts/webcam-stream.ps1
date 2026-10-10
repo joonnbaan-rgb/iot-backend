@@ -15,7 +15,10 @@
 param(
   [string]$Camera = '',
   [string]$Path = 'webcam',
-  [string]$Server = 'localhost:8554',
+  [string]$Server = 'localhost:8554',   # ส่งขึ้น cloud: stream.example.com:8554
+  [string]$User = '',                   # user/password สำหรับ publish (cloud เปิด auth ไว้) ค่าอยู่ใน deploy/.env.prod
+  [string]$Pass = '',
+  [string]$Source = '',                 # ถ้าระบุ (เช่น rtsp://user:pass@192.168.1.50/stream) จะ relay กล้อง IP ที่บ้านขึ้น cloud แทนเว็บแคม
   [int]$Fps = 15,        # fps ของสตรีมที่ส่งออก
   [int]$Width = 640,     # ความกว้างของสตรีมที่ส่งออก (ย่อภาพให้ ความสูงคำนวณตามสัดส่วน)
   [string]$InputSize = '',   # ถ้าจำเป็นต้องบังคับโหมดของกล้อง เช่น 1280x720 (ปกติปล่อยว่าง)
@@ -46,7 +49,7 @@ if ($ListDevices) {
   exit 0
 }
 
-if (-not $Camera) {
+if (-not $Camera -and -not $Source) {
   if ($cameras.Count -eq 0) {
     Write-Host 'ไม่พบเว็บแคม ตรวจว่ากล้องเสียบอยู่ และ Settings > Privacy > Camera อนุญาตให้แอป Desktop ใช้กล้อง' -ForegroundColor Red
     exit 1
@@ -54,16 +57,23 @@ if (-not $Camera) {
   $Camera = $cameras[0]
 }
 
-$target = "rtsp://$Server/$Path"
-Write-Host "กล้อง : $Camera"
-Write-Host "ส่งไป : $target  (กว้าง ${Width}px @ ${Fps}fps)"
+$auth = if ($User) { "${User}:${Pass}@" } else { '' }
+$target = "rtsp://$auth$Server/$Path"
+$targetShown = "rtsp://$Server/$Path"
+Write-Host ("แหล่งภาพ : " + $(if ($Source) { "relay จาก RTSP" } else { $Camera }))
+Write-Host "ส่งไป : $targetShown  (กว้าง ${Width}px @ ${Fps}fps)"
 Write-Host 'กด Ctrl+C เพื่อหยุด'
 Write-Host ''
 
 # ปล่อยให้กล้องเลือกโหมดเอง (บังคับขนาด/fps ที่กล้องไม่รองรับจะเปิดไม่ได้) แล้วย่อภาพ+ปรับ fps ตอนเข้ารหัส
-$inputArgs = @('-f', 'dshow', '-rtbufsize', '64M')
-if ($InputSize) { $inputArgs += @('-video_size', $InputSize) }
-$inputArgs += @('-i', "video=$Camera")
+if ($Source) {
+  # กล้อง IP ที่บ้าน: ดึง RTSP มาแล้วส่งต่อขึ้น cloud
+  $inputArgs = @('-rtsp_transport', 'tcp', '-i', $Source)
+} else {
+  $inputArgs = @('-f', 'dshow', '-rtbufsize', '64M')
+  if ($InputSize) { $inputArgs += @('-video_size', $InputSize) }
+  $inputArgs += @('-i', "video=$Camera")
+}
 
 # ffmpeg เขียนคำเตือนลง stderr ซึ่ง PowerShell 5 มองเป็น error ถ้าตั้งเป็น Stop จึงต้องปิดก่อนรัน ffmpeg
 $ErrorActionPreference = 'Continue'

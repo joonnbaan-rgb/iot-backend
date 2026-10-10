@@ -30,6 +30,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     const url = this.configService.get<string>('MQTT_URL', 'mqtt://localhost:1883');
     this.client = mqtt.connect(url, {
       reconnectPeriod: 2000,
+      username: this.configService.get<string>('MQTT_USERNAME') || undefined,
+      password: this.configService.get<string>('MQTT_PASSWORD') || undefined,
       clientId: `iot-backend-${Math.random().toString(16).slice(2)}`,
     });
 

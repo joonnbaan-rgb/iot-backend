@@ -1,0 +1,22 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# REST API + WebSocket (socket.io) ของ backend
+{$API_DOMAIN} {
+	encode gzip
+	# /metrics เป็นข้อมูลภายใน ไม่เปิดสู่สาธารณะ
+	@internal path /metrics*
+	respond @internal 404
+	reverse_proxy backend:3000
+}
+
+# สตรีมกล้อง (HLS) — path ของสตรีมคือ UUID ของอุปกรณ์ ซึ่งเดาไม่ได้
+{$STREAM_DOMAIN} {
+	reverse_proxy mediamtx:8888
+}
+
+# โดเมนนี้มีไว้ให้ Caddy ขอใบรับรองให้ MQTT (EMQX ใช้ใบรับรองนี้ที่พอร์ต 8883)
+{$MQTT_DOMAIN} {
+	respond "mqtt over tls: port 8883" 200
+}
