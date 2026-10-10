@@ -143,7 +143,7 @@ npm run typecheck
 .\scripts\webcam-stream.ps1 -ListDevices
 .\scripts\webcam-stream.ps1
 # หรือภาพทดสอบสังเคราะห์ (ใส่ id กล้องจริง)
-ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=15 -c:v libx264 -pix_fmt yuv420p -g 30 -f rtsp rtsp://localhost:8554/ID_ของกล้อง
+ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=15 -c:v libx264 -pix_fmt yuv420p -g 30 -f rtsp -rtsp_transport tcp rtsp://localhost:8554/ID_ของกล้อง
 ```
 กล้องจริง: ตั้ง `rtsp_url` ของอุปกรณ์เป็น `rtsp://user:pass@IP:554/stream1`
 

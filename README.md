@@ -419,7 +419,7 @@ Invoke-RestMethod -Uri "http://localhost:3000/devices/<CAMERA_ID>/camera" -Metho
 
 ถ้ายังไม่มีกล้องจริงแต่มี `ffmpeg` ติดตั้งไว้ ใช้คำสั่งนี้จำลองกล้อง publish วิดีโอทดสอบเข้า MediaMTX โดยตรง (ไม่ผ่าน backend เพราะ MediaMTX รับ publish เข้ามาตรงๆ ได้เลยถ้าตั้ง path ไว้):
 ```bash
-ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=15 -c:v libx264 -f rtsp rtsp://localhost:8554/<CAMERA_ID>
+ffmpeg -re -f lavfi -i testsrc=size=640x480:rate=15 -c:v libx264 -f rtsp -rtsp_transport tcp rtsp://localhost:8554/<CAMERA_ID>
 ```
 
 ### 7. ดู URL สำหรับเปิดสตรีม
