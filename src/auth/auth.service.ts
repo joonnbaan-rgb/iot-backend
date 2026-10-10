@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import * as crypto from 'crypto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { ensurePersonalSite } from '../sites/personal-site';
+import { InvitesService } from './invites.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -30,6 +32,7 @@ export class AuthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly invites: InvitesService,
   ) {}
 
   async register(dto: RegisterDto): Promise<Omit<User, 'password_hash'>> {
@@ -38,19 +41,32 @@ export class AuthService {
       throw new ConflictException('อีเมลนี้ถูกใช้สมัครแล้ว');
     }
 
-    const saltRounds = parseInt(this.configService.get<string>('BCRYPT_SALT_ROUNDS', '10'), 10);
-    const password_hash = await bcrypt.hash(dto.password, saltRounds);
-
-    // ผู้ใช้คนแรกของระบบถูกตั้งเป็น admin อัตโนมัติ (bootstrap) คนถัดไปเป็น user ธรรมดา
+    // ผู้ใช้คนแรกของระบบเป็น admin อัตโนมัติ (bootstrap) สมัครได้เสมอ
+    // คนถัดไป: REGISTRATION_MODE = open (ใครก็สมัครได้, ค่าเริ่มต้นตอนพัฒนา) | invite (ต้องมีรหัสเชิญ) | closed (ปิดรับ)
     const userCount = await this.userRepository.count();
-    const role = userCount === 0 ? UserRole.ADMIN : UserRole.USER;
+    const mode = this.configService.get<string>('REGISTRATION_MODE', 'open');
+    let inviteId: string | null = null;
+    if (userCount > 0) {
+      if (mode === 'closed') throw new ForbiddenException('ระบบปิดรับสมัครสมาชิก');
+      if (mode === 'invite') inviteId = await this.invites.consume(dto.invite_code, dto.email);
+    }
 
-    const user = this.userRepository.create({ email: dto.email, password_hash, role });
-    await this.userRepository.save(user);
-    await ensurePersonalSite(this.userRepository.manager, user.id);
+    try {
+      const saltRounds = parseInt(this.configService.get<string>('BCRYPT_SALT_ROUNDS', '10'), 10);
+      const password_hash = await bcrypt.hash(dto.password, saltRounds);
+      const role = userCount === 0 ? UserRole.ADMIN : UserRole.USER;
 
-    const { password_hash: _omit, ...safeUser } = user;
-    return safeUser;
+      const user = this.userRepository.create({ email: dto.email, password_hash, role });
+      await this.userRepository.save(user);
+      await ensurePersonalSite(this.userRepository.manager, user.id);
+      if (inviteId) await this.invites.markUsed(inviteId, user.id);
+
+      const { password_hash: _omit, ...safeUser } = user;
+      return safeUser;
+    } catch (err) {
+      if (inviteId) await this.invites.release(inviteId).catch(() => undefined);
+      throw err;
+    }
   }
 
   async login(dto: LoginDto): Promise<AuthTokens> {

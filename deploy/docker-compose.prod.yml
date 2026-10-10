@@ -97,6 +97,13 @@ services:
       EMQX_AUTHENTICATION__1__USER_ID_TYPE: username
       EMQX_AUTHENTICATION__1__BOOTSTRAP_FILE: /opt/emqx/etc/auth.csv
       EMQX_AUTHENTICATION__1__BOOTSTRAP_TYPE: plain
+      # อุปกรณ์: ผู้ใช้ที่ไม่พบใน DB ด้านบนจะถูกส่งไปให้ backend ตรวจรหัสราย device (username = device id)
+      EMQX_AUTHENTICATION__2__MECHANISM: password_based
+      EMQX_AUTHENTICATION__2__BACKEND: http
+      EMQX_AUTHENTICATION__2__METHOD: post
+      EMQX_AUTHENTICATION__2__URL: http://backend:3000/internal/mqtt/authenticate?t=${INTERNAL_AUTH_TOKEN}
+      EMQX_AUTHENTICATION__2__BODY__username: "$${username}"
+      EMQX_AUTHENTICATION__2__BODY__password: "$${password}"
       EMQX_AUTHORIZATION__NO_MATCH: deny
       EMQX_AUTHORIZATION__DENY_ACTION: disconnect
       # TLS listener
@@ -164,6 +171,11 @@ services:
       MEDIAMTX_API_URL: http://mediamtx:9997
       MEDIAMTX_PUBLIC_HLS_URL: https://${STREAM_DOMAIN}
       MEDIAMTX_PUBLIC_WEBRTC_URL: https://${STREAM_DOMAIN}
+      STREAM_TOKEN_SECRET: ${STREAM_TOKEN_SECRET}
+      INTERNAL_AUTH_TOKEN: ${INTERNAL_AUTH_TOKEN}
+      REGISTRATION_MODE: ${REGISTRATION_MODE:-invite}
+      MQTT_PUBLIC_HOST: ${MQTT_DOMAIN}
+      MQTT_PUBLIC_PORT: "8883"
       RECORDINGS_CONTAINER_PATH: /recordings
       RECORDINGS_DIR: /recordings
       MINIO_ENDPOINT: minio

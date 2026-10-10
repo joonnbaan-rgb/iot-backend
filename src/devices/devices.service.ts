@@ -9,6 +9,8 @@ import { UpdateDeviceDto } from './dto/update-device.dto';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { DeviceAccessService, DeviceWithAccess } from '../device-access/device-access.service';
 import { CamerasService } from '../cameras/cameras.service';
+import { MqttCredentialsService } from '../security/mqtt-credentials.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class DevicesService {
@@ -19,6 +21,8 @@ export class DevicesService {
     private readonly deviceRepository: Repository<Device>,
     private readonly access: DeviceAccessService,
     private readonly camerasService: CamerasService,
+    private readonly mqttCreds: MqttCredentialsService,
+    private readonly config: ConfigService,
   ) {}
 
   // ---------- ใช้ภายในระบบ (ไม่ตรวจสิทธิ์: เรียกจาก MQTT/ingestion ฯลฯ) ----------
@@ -93,6 +97,27 @@ export class DevicesService {
     const { access_level } = device;
     const saved = await this.deviceRepository.save(device);
     return Object.assign(saved, { access_level });
+  }
+
+  /** ออก/เปลี่ยนรหัสเชื่อมต่อ MQTT ของอุปกรณ์ (เฉพาะผู้จัดการ) รหัสจะแสดงครั้งเดียวเท่านั้น */
+  async issueMqttCredentials(user: CurrentUserPayload, id: string) {
+    await this.access.assert(user, id, 'manage');
+    const password = await this.mqttCreds.issue(id);
+    return {
+      host: this.config.get<string>('MQTT_PUBLIC_HOST', 'localhost'),
+      port: parseInt(this.config.get<string>('MQTT_PUBLIC_PORT', '8883'), 10),
+      tls: this.config.get<string>('MQTT_PUBLIC_TLS', 'true') === 'true',
+      username: id,
+      password,
+      client_id: id,
+      publish_topics: [`devices/${id}/telemetry`, `devices/${id}/ack`],
+      subscribe_topics: [`devices/${id}/command`],
+    };
+  }
+
+  async revokeMqttCredentials(user: CurrentUserPayload, id: string): Promise<void> {
+    await this.access.assert(user, id, 'manage');
+    await this.mqttCreds.revoke(id);
   }
 
   /**

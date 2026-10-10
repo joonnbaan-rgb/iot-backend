@@ -14,12 +14,13 @@ import type {
   SiteRole,
   NotificationLog,
   SensorDataPoint,
+  MqttCredentials,
   User,
 } from '@/types/api';
 
 export const authApi = {
-  register: (email: string, password: string) =>
-    apiClient.post<Omit<User, 'password_hash'>>('/auth/register', { email, password }).then((r) => r.data),
+  register: (email: string, password: string, invite_code?: string) =>
+    apiClient.post<Omit<User, 'password_hash'>>('/auth/register', { email, password, invite_code: invite_code || undefined }).then((r) => r.data),
 
   login: (email: string, password: string) =>
     apiClient.post<AuthTokens>('/auth/login', { email, password }).then((r) => r.data),
@@ -54,6 +55,11 @@ export const devicesApi = {
     apiClient.patch<Device>(`/devices/${deviceId}`, body).then((r) => r.data),
 
   remove: (deviceId: string) => apiClient.delete(`/devices/${deviceId}`).then(() => undefined),
+
+  issueMqtt: (deviceId: string) =>
+    apiClient.post<MqttCredentials>(`/devices/${deviceId}/mqtt-credentials`).then((r) => r.data),
+  revokeMqtt: (deviceId: string) =>
+    apiClient.delete(`/devices/${deviceId}/mqtt-credentials`).then(() => undefined),
 };
 
 export const telemetryApi = {

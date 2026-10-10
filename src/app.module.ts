@@ -25,6 +25,7 @@ import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { DiscoveryModule } from './discovery/discovery.module';
 import { SharingModule } from './sharing/sharing.module';
 import { SitesModule } from './sites/sites.module';
+import { SecurityModule } from './security/security.module';
 import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
 
 @Module({
@@ -49,6 +50,7 @@ import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
     NotificationsModule,
     SharingModule,
     SitesModule,
+    SecurityModule,
     DiscoveryModule,
     HealthModule,
     MetricsModule,

@@ -6,6 +6,8 @@ import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { InvitesService } from './invites.service';
+import { InvitesController } from './invites.controller';
 
 @Module({
   imports: [
@@ -18,8 +20,8 @@ import { AuthController } from './auth.controller';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService],
+  controllers: [AuthController, InvitesController],
+  providers: [AuthService, InvitesService],
   // export JwtModule ด้วย เพื่อให้ AppModule เอา JwtAuthGuard ไปตั้งเป็น global guard ได้
   // (guard ต้องใช้ JwtService ซึ่งมาจาก JwtModule)
   exports: [AuthService, JwtModule],

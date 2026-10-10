@@ -58,6 +58,14 @@ export class Device {
   @Column({ type: 'uuid', nullable: true })
   site_id: string | null;
 
+  // SHA-256 ของรหัสเชื่อมต่อ MQTT ของอุปกรณ์ (select:false จึงไม่หลุดไปกับ API)
+  @Column({ type: 'varchar', length: 64, nullable: true, select: false })
+  mqtt_secret_hash: string | null;
+
+  // เวลาที่ออกรหัสล่าสุด (NULL = ยังไม่ได้ออก/ถูกเพิกถอนแล้ว)
+  @Column({ type: 'timestamptz', nullable: true })
+  mqtt_credentials_at: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 

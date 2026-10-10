@@ -43,4 +43,16 @@ export class DevicesController {
   async remove(@CurrentUser() user: CurrentUserPayload, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.devicesService.removeFor(user, id);
   }
+
+  // ออก/เปลี่ยนรหัส MQTT ของอุปกรณ์ (แสดงรหัสครั้งเดียว) และเพิกถอน
+  @Post(':id/mqtt-credentials')
+  issueMqtt(@CurrentUser() user: CurrentUserPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.devicesService.issueMqttCredentials(user, id);
+  }
+
+  @Delete(':id/mqtt-credentials')
+  @HttpCode(204)
+  async revokeMqtt(@CurrentUser() user: CurrentUserPayload, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.devicesService.revokeMqttCredentials(user, id);
+  }
 }

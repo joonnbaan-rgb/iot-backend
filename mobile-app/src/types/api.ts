@@ -28,6 +28,8 @@ export interface Device {
   rtsp_url: string | null;
   owner_id?: string | null;
   site_id?: string | null;
+  // เวลาที่ออกรหัสเชื่อมต่อ MQTT ล่าสุด (null = ยังไม่ได้ออก)
+  mqtt_credentials_at?: string | null;
   // อีเมลเจ้าของ (มีเฉพาะอุปกรณ์ที่ถูกแชร์มาให้)
   owner_email?: string | null;
   // ระดับสิทธิ์ของผู้ใช้ปัจจุบันต่ออุปกรณ์นี้ (backend คำนวณให้)
@@ -134,4 +136,15 @@ export interface SiteMember {
   email: string;
   role: SiteRole;
   created_at: string;
+}
+
+export interface MqttCredentials {
+  host: string;
+  port: number;
+  tls: boolean;
+  username: string;
+  password: string;
+  client_id: string;
+  publish_topics: string[];
+  subscribe_topics: string[];
 }

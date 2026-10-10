@@ -23,6 +23,7 @@ export function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleRegister() {
@@ -33,7 +34,7 @@ export function RegisterScreen({ navigation }: Props) {
     }
     setLoading(true);
     try {
-      await register(email.trim(), password);
+      await register(email.trim(), password, inviteCode.trim() || undefined);
     } catch (err) {
       Alert.alert('สมัครสมาชิกไม่สำเร็จ', extractErrorMessage(err));
     } finally {
@@ -74,6 +75,14 @@ export function RegisterScreen({ navigation }: Props) {
           onChangeText={setConfirm}
           placeholder="พิมพ์รหัสผ่านอีกครั้ง"
           secureTextEntry
+          autoCapitalize="none"
+        />
+
+        <TextField
+          label="รหัสเชิญ (ถ้าเซิร์ฟเวอร์กำหนด)"
+          value={inviteCode}
+          onChangeText={setInviteCode}
+          placeholder="ขอรหัสจากผู้ดูแลระบบ"
           autoCapitalize="none"
         />
 

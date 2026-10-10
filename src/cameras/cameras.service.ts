@@ -5,6 +5,7 @@ import { Interval } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { Device, DeviceType } from '../devices/entities/device.entity';
 import { RecordingsService } from './recordings.service';
+import { StreamTokenService } from '../security/stream-token.service';
 
 export interface StreamUrls {
   hls_url: string;
@@ -21,6 +22,7 @@ export class CamerasService {
     private readonly deviceRepository: Repository<Device>,
     private readonly configService: ConfigService,
     private readonly recordingsService: RecordingsService,
+    private readonly streamTokens: StreamTokenService,
   ) {}
 
   /**
@@ -128,8 +130,12 @@ export class CamerasService {
       'http://localhost:8889',
     );
 
+    // โหมด production: ฝังโทเคนอายุจำกัดใน path (Caddy ตรวจทุกคำขอ) ไม่งั้นใช้ URL ตรงเหมือนตอนพัฒนา
+    const hlsPath = this.streamTokens.enabled
+      ? `s/${this.streamTokens.sign(deviceId)}/${deviceId}`
+      : deviceId;
     return {
-      hls_url: `${hlsBase}/${deviceId}/index.m3u8`,
+      hls_url: `${hlsBase}/${hlsPath}/index.m3u8`,
       webrtc_url: `${webrtcBase}/${deviceId}`,
       rtsp_source: device.rtsp_url,
     };

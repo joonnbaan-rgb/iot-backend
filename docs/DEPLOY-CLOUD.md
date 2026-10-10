@@ -58,11 +58,12 @@ EXPO_PUBLIC_WS_URL=https://api.example.com
 
 ## 5) ต่ออุปกรณ์
 
-**เซนเซอร์/สวิตช์ผ่าน MQTT**
-- host: `mqtt.example.com` พอร์ต `8883` เปิด TLS
-- username/password: `MQTT_DEVICE_USER` / `MQTT_DEVICE_PASSWORD` ใน `deploy/.env.prod`
-- topic: `devices/{device_id}/telemetry` และ `devices/{device_id}/ack` (รับคำสั่งที่ `devices/{device_id}/commands`)
-- ⚠️ ตอนนี้อุปกรณ์ทุกตัวใช้ username/password เดียวกัน ยังไม่แยกสิทธิ์ราย device — ห้ามแจกรหัสนี้ให้คนที่ไม่ไว้ใจ
+**เซนเซอร์/สวิตช์ผ่าน MQTT** — แต่ละอุปกรณ์มีรหัสของตัวเอง (ไม่มีรหัสร่วม)
+1. เพิ่มอุปกรณ์ในแอป แล้วเปิด "แก้ไขอุปกรณ์" → กด "ออกรหัสเชื่อมต่อ MQTT"
+2. แอปแสดง host/port/username/password **ครั้งเดียว** (บันทึกลงตัวอุปกรณ์ทันที) username คือ device id
+3. ตั้งค่าอุปกรณ์: host `mqtt.example.com` พอร์ต `8883` เปิด TLS, clientId = username
+4. อุปกรณ์ publish ได้เฉพาะ `devices/{device_id}/telemetry` และ `devices/{device_id}/ack` และ subscribe ได้เฉพาะ `devices/{device_id}/command` ของตัวเองเท่านั้น
+5. รหัสหลุด/ทำเครื่องหาย → กด "ออกรหัสใหม่" (รหัสเก่าใช้ไม่ได้ทันทีที่เชื่อมต่อครั้งถัดไป) หรือ "เพิกถอน"
 
 **กล้องที่บ้าน (ไม่ต้องเปิดพอร์ตที่เราเตอร์บ้าน)** — ให้คอมที่บ้านดึงภาพแล้วส่งขึ้น cloud:
 ```powershell
@@ -90,3 +91,18 @@ EXPO_PUBLIC_WS_URL=https://api.example.com
 - รหัส MQTT ใช้ร่วมกันทุกอุปกรณ์ — ควรออกรหัสแยกต่ออุปกรณ์
 - ปุ่ม "สแกนหาอุปกรณ์" ในแอปสแกนวง LAN ของเซิร์ฟเวอร์ ซึ่งบน cloud จะไม่เจออะไร (ต้องมี gateway ที่บ้านทำแทน)
 - ยังไม่มี CI/CD, การมอนิเตอร์ (Prometheus/Grafana เดิมไม่รวมในชุดนี้), และการสำรองข้อมูลไปนอกเครื่อง
+
+
+## 7) ความปลอดภัยเพิ่มเติม (เฟส E)
+
+**ปิดสมัครแบบเปิด** — `REGISTRATION_MODE=invite` (ค่าเริ่มต้นของ production) ผู้ใช้คนแรกสมัครได้เสมอและเป็น admin คนถัดไปต้องมีรหัสเชิญ
+สร้างรหัสเชิญ (ต้องล็อกอินเป็น admin; ใส่ `email` เพื่อผูกรหัสกับอีเมลนั้น, `days` = อายุ 1–30 วัน):
+```powershell
+$t = (Invoke-RestMethod https://api.example.com/auth/login -Method Post -ContentType 'application/json' -Body '{"email":"คุณ@mail.com","password":"รหัสผ่าน"}').access_token
+Invoke-RestMethod https://api.example.com/invites -Method Post -Headers @{Authorization="Bearer $t"} -ContentType 'application/json' -Body '{"days":7}'
+```
+ส่ง `code` ที่ได้ให้ผู้ที่ต้องการเชิญ (เห็นครั้งเดียว) ดู/ยกเลิกใบเชิญ: `GET /invites`, `DELETE /invites/{id}` ตั้ง `REGISTRATION_MODE=closed` เพื่อปิดรับทั้งหมด
+
+**สตรีมกล้อง (HLS) ต้องมีโทเคน** — ลิงก์ที่แอปได้รับมีโทเคนอายุ 12 ชั่วโมงฝังใน path (`STREAM_TOKEN_TTL_SECONDS` ปรับได้) ทุกคำขอถูก Caddy ส่งไปตรวจที่ backend ก่อน ผู้ที่รู้แค่ device id ดูสตรีมไม่ได้อีกต่อไป
+
+**ยังไม่ได้ทำ:** RTSPS สำหรับเส้นทางส่งภาพกล้องขึ้น cloud (ตอนนี้ RTSP ธรรมดา ต้องมี user/password), MQTT ACL รายผู้ใช้สำหรับ client อื่นนอกจากอุปกรณ์และ backend

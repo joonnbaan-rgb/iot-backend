@@ -10,7 +10,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, inviteCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 }
@@ -61,8 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     connectSocket(tokens.access_token);
   }
 
-  async function register(email: string, password: string) {
-    await authApi.register(email, password);
+  async function register(email: string, password: string, inviteCode?: string) {
+    await authApi.register(email, password, inviteCode);
     // backend ไม่ auto-login หลังสมัคร -> login ต่อให้เลยเพื่อ UX ที่ลื่นไหล
     await login(email, password);
   }
