@@ -60,6 +60,9 @@ export function LoginScreen({ navigation }: Props) {
         />
 
         <Button title="เข้าสู่ระบบ" onPress={handleLogin} loading={loading} style={styles.submit} />
+        <Text style={styles.forgot} onPress={() => navigation.navigate('ForgotPassword', { email: email.trim() || undefined })}>
+          ลืมรหัสผ่าน?
+        </Text>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>ยังไม่มีบัญชี?</Text>
@@ -80,6 +83,7 @@ const styles = StyleSheet.create({
   title: { color: colors.textPrimary, fontSize: 30, fontWeight: '700', marginBottom: spacing.xs },
   subtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
   submit: { marginTop: spacing.sm },
+  forgot: { color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md, fontSize: 14 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
   footerText: { color: colors.textSecondary },
   link: { color: colors.primary, fontWeight: '600' },

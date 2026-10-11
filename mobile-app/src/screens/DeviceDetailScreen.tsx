@@ -41,7 +41,8 @@ export function DeviceDetailScreen({ route, navigation }: Props) {
   // เจ้าของอุปกรณ์หรือ admin เท่านั้นที่แก้ไข/ลบ/ตั้งค่ากล้องได้
   const { user } = useAuth();
   const canControl = device?.access_level !== 'view'; // view = ดูอย่างเดียว
-  const canManage = device?.access_level === 'owner' || device?.access_level === 'admin';
+  const canManage =
+    device?.access_level === 'owner' || device?.access_level === 'admin' || device?.access_level === 'manager';
 
   const load = useCallback(
     async (isRefresh = false) => {

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '@/contexts/AuthContext';
 import { extractErrorMessage } from '@/api/client';
+import { authApi } from '@/api/endpoints';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { colors, spacing } from '@/theme';
@@ -25,6 +26,11 @@ export function RegisterScreen({ navigation }: Props) {
   const [confirm, setConfirm] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
+  // ถามเซิร์ฟเวอร์ว่ารับสมัครแบบไหน: open = ไม่ต้องใช้รหัสเชิญ, invite = ต้องมี, closed = ปิดรับ
+  const [mode, setMode] = useState<'open' | 'invite' | 'closed'>('open');
+  useEffect(() => {
+    authApi.config().then((c) => setMode(c.registration_mode)).catch(() => setMode('invite'));
+  }, []);
 
   async function handleRegister() {
     const validationError = validate(email, password, confirm);
@@ -48,8 +54,9 @@ export function RegisterScreen({ navigation }: Props) {
         <View style={styles.header}>
           <Text style={styles.title}>สร้างบัญชีใหม่</Text>
           <Text style={styles.subtitle}>
-            ผู้ใช้คนแรกของระบบจะได้สิทธิ์ admin อัตโนมัติ คนถัดไปเป็นผู้ใช้ทั่วไป
+            สมัครด้วยอีเมลและรหัสผ่าน แล้วเพิ่มอุปกรณ์ของคุณเองได้ทันที คุณจะเป็นผู้ดูแลอุปกรณ์ที่คุณเพิ่ม และแชร์ให้คนอื่นได้
           </Text>
+          {mode === 'closed' && <Text style={styles.closed}>ขณะนี้ปิดรับสมัครสมาชิกใหม่</Text>}
         </View>
 
         <TextField
@@ -78,15 +85,17 @@ export function RegisterScreen({ navigation }: Props) {
           autoCapitalize="none"
         />
 
-        <TextField
-          label="รหัสเชิญ (ถ้าเซิร์ฟเวอร์กำหนด)"
-          value={inviteCode}
-          onChangeText={setInviteCode}
-          placeholder="ขอรหัสจากผู้ดูแลระบบ"
-          autoCapitalize="none"
-        />
+        {mode === 'invite' && (
+          <TextField
+            label="รหัสเชิญ"
+            value={inviteCode}
+            onChangeText={setInviteCode}
+            placeholder="ขอรหัสจากผู้ดูแลระบบ"
+            autoCapitalize="none"
+          />
+        )}
 
-        <Button title="สมัครสมาชิก" onPress={handleRegister} loading={loading} style={styles.submit} />
+        <Button title="สมัครสมาชิก" onPress={handleRegister} loading={loading} disabled={mode === 'closed'} style={styles.submit} />
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>มีบัญชีอยู่แล้ว?</Text>
@@ -105,6 +114,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.xl },
   title: { color: colors.textPrimary, fontSize: 30, fontWeight: '700', marginBottom: spacing.xs },
   subtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  closed: { color: colors.danger, marginTop: spacing.sm, fontSize: 13 },
   submit: { marginTop: spacing.sm },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
   footerText: { color: colors.textSecondary },

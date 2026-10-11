@@ -40,7 +40,8 @@ export function EditDeviceScreen({ route, navigation }: Props) {
       .finally(() => setLoading(false));
   }, [deviceId, navigation]);
 
-  const isManager = device?.access_level === 'owner' || device?.access_level === 'admin';
+  const isManager =
+    device?.access_level === 'owner' || device?.access_level === 'admin' || device?.access_level === 'manager';
   const isMqttDevice = device?.type !== 'camera';
 
   function showCredentials(c: MqttCredentials) {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { devicesApi, discoveryApi, sitesApi } from '@/api/endpoints';
@@ -12,13 +13,23 @@ import type { DevicesStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<DevicesStackParamList, 'AddDevice'>;
 
-const TYPE_OPTIONS: { value: Device['type']; label: string }[] = [
-  { value: 'sensor', label: 'เซนเซอร์' },
-  { value: 'camera', label: 'กล้อง IP' },
-  { value: 'actuator', label: 'อุปกรณ์ไฟฟ้า' },
+const TYPE_CARDS: {
+  value: Device['type'];
+  title: string;
+  desc: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+}[] = [
+  { value: 'sensor', title: 'เซนเซอร์', desc: 'วัดอุณหภูมิ ความชื้น ฯลฯ แล้วส่งค่ามาให้ดูและตั้งแจ้งเตือน', icon: 'thermometer-outline' },
+  { value: 'actuator', title: 'อุปกรณ์ไฟฟ้า', desc: 'เปิด-ปิดไฟ ปลั๊ก ปั๊มน้ำ พัดลม จากแอปหรือตั้งเวลา/เงื่อนไขอัตโนมัติ', icon: 'power-outline' },
+  { value: 'camera', title: 'กล้อง IP', desc: 'ดูภาพสดและย้อนหลังจากกล้อง RTSP', icon: 'videocam-outline' },
 ];
 
+type Step = 'type' | 'details' | 'done';
+
 export function AddDeviceScreen({ navigation }: Props) {
+  const [step, setStep] = useState<Step>('type');
+  const [created, setCreated] = useState<Device | null>(null);
+  const [showScan, setShowScan] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState<Device['type']>('sensor');
   const [location, setLocation] = useState('');
@@ -62,6 +73,7 @@ export function AddDeviceScreen({ navigation }: Props) {
     setName(d.name);
     setType(d.suggested_type);
     if (d.suggested_rtsp_url) setRtspUrl(d.suggested_rtsp_url);
+    setStep('details');
   }
 
   async function handleSubmit() {
@@ -76,7 +88,7 @@ export function AddDeviceScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      await devicesApi.create({
+      const device = await devicesApi.create({
         name: name.trim(),
         type,
         location: location.trim() || undefined,
@@ -85,9 +97,8 @@ export function AddDeviceScreen({ navigation }: Props) {
         connection_host: paired?.ip,
         site_id: siteId || undefined,
       });
-      Alert.alert('สำเร็จ', 'เพิ่มอุปกรณ์เรียบร้อยแล้ว', [
-        { text: 'ตกลง', onPress: () => navigation.goBack() },
-      ]);
+      setCreated(device);
+      setStep('done');
     } catch (err) {
       Alert.alert('เพิ่มอุปกรณ์ไม่สำเร็จ', extractErrorMessage(err));
     } finally {
@@ -95,92 +106,193 @@ export function AddDeviceScreen({ navigation }: Props) {
     }
   }
 
+  const typeTitle = TYPE_CARDS.find((c) => c.value === type)?.title ?? '';
+
+  if (step === 'done' && created) {
+    return (
+      <ScrollView style={styles.flex} contentContainerStyle={styles.doneWrap}>
+        <Ionicons name="checkmark-circle" size={72} color={colors.success} />
+        <Text style={styles.doneTitle}>เพิ่ม "{created.name}" แล้ว</Text>
+        <Text style={styles.doneHint}>
+          คุณเป็นผู้ดูแลอุปกรณ์นี้ ดู ตั้งค่า และแชร์ให้บัญชีอื่นได้
+          {type !== 'camera' ? '\nขั้นต่อไป: เปิดอุปกรณ์เพื่อออกรหัสเชื่อมต่อ MQTT ให้เครื่องจริง' : '\nขั้นต่อไป: เปิดอุปกรณ์เพื่อตั้งค่าแหล่งภาพ (RTSP) ถ้ายังไม่ได้ใส่'}
+        </Text>
+        <Button
+          title="เปิดอุปกรณ์นี้"
+          onPress={() => navigation.replace('DeviceDetail', { deviceId: created.id, deviceName: created.name })}
+          style={styles.doneBtn}
+        />
+        <Button
+          title="แชร์ให้คนอื่น"
+          variant="secondary"
+          onPress={() => navigation.replace('ShareCreate', { deviceId: created.id })}
+          style={styles.doneBtn}
+        />
+        <Button
+          title="เพิ่มอุปกรณ์อีกเครื่อง"
+          variant="secondary"
+          onPress={() => {
+            setCreated(null);
+            setName('');
+            setLocation('');
+            setRtspUrl('');
+            setPaired(null);
+            setStep('type');
+          }}
+          style={styles.doneBtn}
+        />
+      </ScrollView>
+    );
+  }
+
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.scanBox}>
-          <Text style={styles.scanTitle}>จับคู่อุปกรณ์ในเครือข่าย</Text>
-          <Text style={styles.scanHint}>
-            ค้นหา Sonoff/Tasmota และกล้อง IP ในวง LAN เดียวกับเซิร์ฟเวอร์ (ปล่อยว่างเพื่อใช้วงเริ่มต้นของเซิร์ฟเวอร์)
-          </Text>
-          <TextField
-            label="วง LAN (ไม่บังคับ)"
-            value={subnet}
-            onChangeText={setSubnet}
-            placeholder="192.168.1.0/24"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <Button title={scanning ? 'กำลังสแกน…' : 'สแกนหาอุปกรณ์'} variant="secondary" onPress={scan} loading={scanning} />
-          {scanned && scanned.length === 0 && (
-            <Text style={styles.scanHint}>ไม่พบอุปกรณ์ที่รู้จัก (ตรวจว่าอุปกรณ์เปิดอยู่ และอยู่วง LAN เดียวกับเซิร์ฟเวอร์)</Text>
-          )}
-          {scanned?.map((d) => (
-            <Pressable
-              key={`${d.kind}-${d.ip}`}
-              onPress={() => !d.already_added && pick(d)}
-              style={[styles.found, paired?.ip === d.ip && paired?.kind === d.kind && styles.foundActive, d.already_added && styles.foundDone]}
-            >
-              <Text style={styles.foundName}>{d.name}</Text>
-              <Text style={styles.foundMeta}>
-                {d.ip} · {d.detail}
-              </Text>
-              <Text style={styles.foundAction}>
-                {d.already_added ? 'เพิ่มไว้แล้ว' : paired?.ip === d.ip && paired?.kind === d.kind ? 'เลือกแล้ว ✓' : 'แตะเพื่อเลือก'}
+        {step === 'type' && (
+          <>
+            <Text style={styles.heading}>คุณจะเพิ่มอะไร?</Text>
+            {TYPE_CARDS.map((c) => (
+              <Pressable
+                key={c.value}
+                style={styles.typeCard}
+                onPress={() => {
+                  setType(c.value);
+                  setStep('details');
+                }}
+              >
+                <View style={styles.typeIcon}>
+                  <Ionicons name={c.icon} size={26} color={colors.primary} />
+                </View>
+                <View style={styles.fill}>
+                  <Text style={styles.typeTitle}>{c.title}</Text>
+                  <Text style={styles.typeDesc}>{c.desc}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+              </Pressable>
+            ))}
+
+            <Pressable style={styles.scanToggle} onPress={() => setShowScan((v) => !v)}>
+              <Ionicons name="search-outline" size={18} color={colors.primary} />
+              <Text style={styles.scanToggleText}>
+                {showScan ? 'ซ่อนการค้นหาอัตโนมัติ' : 'มีอุปกรณ์ในวง LAN เดียวกับเซิร์ฟเวอร์? ค้นหาอัตโนมัติ'}
               </Text>
             </Pressable>
-          ))}
-        </View>
 
-        <TextField label="ชื่ออุปกรณ์" value={name} onChangeText={setName} placeholder="เช่น เซนเซอร์อุณหภูมิห้องนั่งเล่น" />
-
-        {sites.length > 1 && (
-          <>
-            <Text style={styles.label}>ไซต์</Text>
-            <Segmented value={siteId} onChange={setSiteId} options={sites.map((x) => ({ value: x.id, label: x.name }))} />
+            {showScan && (
+              <View style={styles.scanBox}>
+                <Text style={styles.scanHint}>
+                  ค้นหา Sonoff/Tasmota และกล้อง IP ในวง LAN เดียวกับเซิร์ฟเวอร์ (ปล่อยว่างเพื่อใช้วงเริ่มต้นของเซิร์ฟเวอร์)
+                </Text>
+                <TextField
+                  label="วง LAN (ไม่บังคับ)"
+                  value={subnet}
+                  onChangeText={setSubnet}
+                  placeholder="192.168.1.0/24"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Button title={scanning ? 'กำลังสแกน…' : 'สแกนหาอุปกรณ์'} variant="secondary" onPress={scan} loading={scanning} />
+                {scanned && scanned.length === 0 && (
+                  <Text style={styles.scanHint}>ไม่พบอุปกรณ์ที่รู้จัก (ตรวจว่าอุปกรณ์เปิดอยู่ และอยู่วง LAN เดียวกับเซิร์ฟเวอร์)</Text>
+                )}
+                {scanned?.map((d) => (
+                  <Pressable
+                    key={`${d.kind}-${d.ip}`}
+                    onPress={() => !d.already_added && pick(d)}
+                    style={[styles.found, d.already_added && styles.foundDone]}
+                  >
+                    <Text style={styles.foundName}>{d.name}</Text>
+                    <Text style={styles.foundMeta}>
+                      {d.ip} · {d.detail}
+                    </Text>
+                    <Text style={styles.foundAction}>{d.already_added ? 'เพิ่มไว้แล้ว' : 'แตะเพื่อเลือก'}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </>
         )}
 
-        <Text style={styles.label}>ประเภทอุปกรณ์</Text>
-        <View style={styles.typeRow}>
-          {TYPE_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt.value}
-              onPress={() => setType(opt.value)}
-              style={[styles.typeChip, type === opt.value && styles.typeChipActive]}
-            >
-              <Text style={[styles.typeChipText, type === opt.value && styles.typeChipTextActive]}>
-                {opt.label}
-              </Text>
+        {step === 'details' && (
+          <>
+            <Pressable onPress={() => setStep('type')} style={styles.back}>
+              <Ionicons name="chevron-back" size={18} color={colors.primary} />
+              <Text style={styles.backText}>เปลี่ยนประเภท ({typeTitle})</Text>
             </Pressable>
-          ))}
-        </View>
+            <Text style={styles.heading}>ตั้งชื่ออุปกรณ์</Text>
+            {paired && (
+              <Text style={styles.paired}>
+                จับคู่กับ {paired.name} ({paired.ip})
+              </Text>
+            )}
 
-        <TextField
-          label="ตำแหน่งที่ติดตั้ง (ไม่บังคับ)"
-          value={location}
-          onChangeText={setLocation}
-          placeholder="เช่น ห้องนั่งเล่น ชั้น 1"
-        />
+            <TextField label="ชื่ออุปกรณ์" value={name} onChangeText={setName} placeholder="เช่น เซนเซอร์อุณหภูมิห้องนั่งเล่น" />
+            <TextField
+              label="ตำแหน่งที่ติดตั้ง (ไม่บังคับ)"
+              value={location}
+              onChangeText={setLocation}
+              placeholder="เช่น ห้องนั่งเล่น ชั้น 1"
+            />
 
-        {type === 'camera' && (
-          <TextField
-            label="RTSP URL ของกล้อง (ไม่บังคับ ตั้งทีหลังได้)"
-            value={rtspUrl}
-            onChangeText={setRtspUrl}
-            placeholder="rtsp://192.168.1.x:554/stream"
-            autoCapitalize="none"
-          />
+            {sites.length > 1 && (
+              <>
+                <Text style={styles.label}>ไซต์</Text>
+                <Segmented value={siteId} onChange={setSiteId} options={sites.map((x) => ({ value: x.id, label: x.name }))} />
+              </>
+            )}
+
+            {type === 'camera' && (
+              <TextField
+                label="RTSP URL ของกล้อง (ไม่บังคับ ตั้งทีหลังได้)"
+                value={rtspUrl}
+                onChangeText={setRtspUrl}
+                placeholder="rtsp://192.168.1.x:554/stream"
+                autoCapitalize="none"
+              />
+            )}
+
+            <Button title="เพิ่มอุปกรณ์" onPress={handleSubmit} loading={loading} style={styles.submit} />
+          </>
         )}
-
-        <Button title="บันทึกอุปกรณ์" onPress={handleSubmit} loading={loading} style={styles.submit} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  heading: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: spacing.md },
+  typeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  typeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '700' },
+  typeDesc: { color: colors.textSecondary, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  scanToggle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
+  scanToggleText: { color: colors.primary, fontSize: 13, flex: 1 },
+  back: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  backText: { color: colors.primary, fontSize: 13 },
+  paired: { color: colors.success, fontSize: 13, marginBottom: spacing.md },
+  doneWrap: { alignItems: 'center', padding: spacing.lg, paddingTop: spacing.xl * 2 },
+  doneTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginTop: spacing.md, textAlign: 'center' },
+  doneHint: { color: colors.textSecondary, fontSize: 14, lineHeight: 22, textAlign: 'center', marginVertical: spacing.md },
+  doneBtn: { alignSelf: 'stretch', marginTop: spacing.sm },
   flex: { flex: 1, backgroundColor: colors.bg },
+  fill: { flex: 1 },
   container: { padding: spacing.lg },
   label: { color: colors.textSecondary, fontSize: 13, marginBottom: spacing.sm, fontWeight: '500' },
   typeRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },

@@ -48,7 +48,7 @@ export interface DiscoveredDevice {
   already_added: boolean;
 }
 
-export type AccessLevel = 'admin' | 'owner' | 'control' | 'view';
+export type AccessLevel = 'admin' | 'owner' | 'manager' | 'control' | 'view';
 
 export interface SensorDataPoint {
   id: string;
@@ -96,7 +96,7 @@ export interface DeviceGroup {
   created_at: string;
 }
 
-export type SharePermission = 'view' | 'control';
+export type SharePermission = 'view' | 'control' | 'manage';
 
 export interface Share {
   id: string;
@@ -171,4 +171,24 @@ export interface LinkCode {
   expires_at: string;
   open_url: string | null;
   instructions: string;
+}
+
+export interface PublicConfig {
+  registration_mode: 'open' | 'invite' | 'closed';
+  password_reset_available: boolean;
+}
+
+export interface Usage {
+  devices: { used: number; limit: number | null };
+  sites: { used: number; limit: number | null };
+}
+
+export interface PendingShare {
+  id: string;
+  email: string;
+  permission: SharePermission;
+  scope: 'all' | 'device' | 'group';
+  device_name: string | null;
+  group_name: string | null;
+  created_at: string;
 }

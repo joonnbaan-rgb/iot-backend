@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { devicesApi, groupsApi } from '@/api/endpoints';
+import { authApi, devicesApi, groupsApi } from '@/api/endpoints';
 import { extractErrorMessage } from '@/api/client';
 import { getSocket, type DeviceStatusEvent } from '@/realtime/socket';
 import { DeviceCard } from '@/components/DeviceCard';
 import { Button } from '@/components/Button';
 import { Segmented } from '@/components/Segmented';
-import { colors, spacing } from '@/theme';
-import type { Device, DeviceGroup } from '@/types/api';
+import { colors, radius, spacing } from '@/theme';
+import type { Device, DeviceGroup, Usage } from '@/types/api';
 import type { DevicesStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<DevicesStackParamList, 'DevicesList'>;
@@ -20,6 +21,7 @@ export function DevicesListScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [groups, setGroups] = useState<DeviceGroup[]>([]);
+  const [usage, setUsage] = useState<Usage | null>(null);
   // all | mine | shared | g:{groupId}
   const [filter, setFilter] = useState<string>('all');
 
@@ -27,9 +29,14 @@ export function DevicesListScreen({ navigation }: Props) {
     isRefresh ? setRefreshing(true) : setLoading(true);
     setError(null);
     try {
-      const [data, gs] = await Promise.all([devicesApi.list(), groupsApi.list().catch(() => [])]);
+      const [data, gs, us] = await Promise.all([
+        devicesApi.list(),
+        groupsApi.list().catch(() => []),
+        authApi.usage().catch(() => null),
+      ]);
       setDevices(data);
       setGroups(gs);
+      setUsage(us);
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {
@@ -81,22 +88,34 @@ export function DevicesListScreen({ navigation }: Props) {
     ...groups.map((g) => ({ value: `g:${g.id}`, label: g.name })),
   ];
 
+  const tools: { label: string; icon: React.ComponentProps<typeof Ionicons>['name']; go: () => void }[] = [
+    { label: 'แผนผัง', icon: 'map-outline', go: () => navigation.navigate('FloorPlan') },
+    { label: 'ไซต์', icon: 'business-outline', go: () => navigation.navigate('Sites') },
+    { label: 'กลุ่ม', icon: 'albums-outline', go: () => navigation.navigate('Groups') },
+    { label: 'การแชร์', icon: 'people-outline', go: () => navigation.navigate('Sharing') },
+  ];
+  const isEmpty = !loading && !error && devices.length === 0;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>อุปกรณ์ของคุณ</Text>
-          <Text style={styles.subtitle}>{visible.length} เครื่อง</Text>
-        </View>
-        <Button title="+ เพิ่มอุปกรณ์" onPress={() => navigation.navigate('AddDevice')} style={styles.addBtn} />
+        <Text style={styles.title}>อุปกรณ์ของคุณ</Text>
+        <Text style={styles.subtitle}>
+          {visible.length} เครื่อง
+          {usage?.devices.limit != null ? ` · ใช้โควตา ${usage.devices.used}/${usage.devices.limit}` : ''}
+        </Text>
       </View>
 
-      <View style={styles.toolbar}>
-        <Button title="แผนผัง" variant="secondary" onPress={() => navigation.navigate('FloorPlan')} style={styles.toolBtn} />
-        <Button title="ไซต์" variant="secondary" onPress={() => navigation.navigate('Sites')} style={styles.toolBtn} />
-        <Button title="กลุ่ม" variant="secondary" onPress={() => navigation.navigate('Groups')} style={styles.toolBtn} />
-        <Button title="การแชร์" variant="secondary" onPress={() => navigation.navigate('Sharing')} style={styles.toolBtn} />
-      </View>
+      {!isEmpty && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.toolbar} contentContainerStyle={styles.toolbarRow}>
+          {tools.map((t) => (
+            <Pressable key={t.label} onPress={t.go} style={styles.chip}>
+              <Ionicons name={t.icon} size={16} color={colors.primary} />
+              <Text style={styles.chipText}>{t.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
 
       {filterOptions.length > 1 && <Segmented value={filter} onChange={setFilter} options={filterOptions} />}
 
@@ -118,33 +137,71 @@ export function DevicesListScreen({ navigation }: Props) {
           />
         )}
         ListEmptyComponent={
-          !loading ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>
-                {error ? '' : 'คุณยังไม่มีอุปกรณ์\nกด "เพิ่มอุปกรณ์" เพื่อลงทะเบียนเครื่องแรก'}
+          isEmpty ? (
+            <View style={styles.onboard}>
+              <Ionicons name="hardware-chip-outline" size={48} color={colors.primary} />
+              <Text style={styles.onboardTitle}>เริ่มต้นใช้งาน</Text>
+              <Text style={styles.onboardText}>
+                1. เพิ่มอุปกรณ์เครื่องแรกของคุณ{'\n'}2. ออกรหัสเชื่อมต่อให้เครื่องจริง{'\n'}3. ดูค่า ควบคุม ตั้งแจ้งเตือน หรือแชร์ให้คนในบ้าน/ทีม
               </Text>
+              <Button title="เพิ่มอุปกรณ์เครื่องแรก" onPress={() => navigation.navigate('AddDevice')} style={styles.onboardBtn} />
+              <Text style={styles.onboardHint}>ถ้ามีคนแชร์อุปกรณ์ให้คุณ จะปรากฏที่นี่อัตโนมัติ</Text>
             </View>
           ) : null
         }
       />
+
+      {!isEmpty && (
+        <Pressable style={styles.fab} onPress={() => navigation.navigate('AddDevice')} accessibilityLabel="เพิ่มอุปกรณ์">
+          <Ionicons name="add" size={22} color={colors.white} />
+          <Text style={styles.fabText}>เพิ่มอุปกรณ์</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: spacing.md },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
+  header: { paddingVertical: spacing.md },
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700' },
   subtitle: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
-  toolbar: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  toolbar: { flexGrow: 0, marginBottom: spacing.md },
+  toolbarRow: { gap: spacing.sm },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  fab: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    borderRadius: radius.pill,
+    elevation: 4,
+  },
+  fabText: { color: colors.white, fontWeight: '700', fontSize: 14 },
+  onboard: { alignItems: 'center', paddingTop: spacing.xl, paddingHorizontal: spacing.md },
+  onboardTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '700', marginTop: spacing.md },
+  onboardText: { color: colors.textSecondary, fontSize: 14, lineHeight: 24, marginVertical: spacing.md },
+  onboardBtn: { alignSelf: 'stretch' },
+  onboardHint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.md, textAlign: 'center' },
   toolBtn: { flex: 1, paddingVertical: spacing.sm },
   addBtn: { paddingHorizontal: spacing.md },
-  listContent: { paddingBottom: spacing.xl },
+  listContent: { paddingBottom: spacing.xl * 3, flexGrow: 1 },
   empty: { alignItems: 'center', paddingTop: spacing.xl * 2 },
   emptyText: { color: colors.textMuted, textAlign: 'center', fontSize: 14, lineHeight: 22 },
   errorBox: {

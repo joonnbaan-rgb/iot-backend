@@ -59,14 +59,21 @@ export function ShareCreateScreen({ route, navigation }: Props) {
     }
     setSaving(true);
     try {
-      await sharesApi.create({
+      const res = await sharesApi.create({
         email: email.trim(),
         permission,
         scope,
         device_ids: scope === 'devices' ? [...selected] : undefined,
         group_id: scope === 'group' ? groupId : undefined,
       });
-      Alert.alert('แชร์สำเร็จ', `แชร์ให้ ${email.trim()} แล้ว`, [{ text: 'ตกลง', onPress: () => navigation.goBack() }]);
+      // ผลลัพธ์ว่าง = อีเมลนี้ยังไม่ได้สมัคร -> บันทึกเป็นคำเชิญที่รอรับ
+      Alert.alert(
+        res.length === 0 ? 'ส่งคำเชิญแล้ว' : 'แชร์สำเร็จ',
+        res.length === 0
+          ? `${email.trim()} ยังไม่มีบัญชี เมื่อสมัครด้วยอีเมลนี้จะเห็นอุปกรณ์ที่แชร์ให้ทันที (ยกเลิกได้ที่หน้า "การแชร์")`
+          : `แชร์ให้ ${email.trim()} แล้ว`,
+        [{ text: 'ตกลง', onPress: () => navigation.goBack() }],
+      );
     } catch (err) {
       Alert.alert('แชร์ไม่สำเร็จ', extractErrorMessage(err));
     } finally {
@@ -85,7 +92,7 @@ export function ShareCreateScreen({ route, navigation }: Props) {
   return (
     <ScrollView style={styles.flex} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <TextField
-        label="อีเมลของบัญชีที่ต้องการแชร์ให้"
+        label="อีเมลของผู้รับ (ยังไม่สมัครก็ได้)"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -101,8 +108,14 @@ export function ShareCreateScreen({ route, navigation }: Props) {
         options={[
           { value: 'view', label: 'ดูอย่างเดียว' },
           { value: 'control', label: 'ควบคุมได้' },
+          { value: 'manage', label: 'ผู้จัดการร่วม' },
         ]}
       />
+      <Text style={styles.hint}>
+        {permission === 'view' && 'ดูสถานะ ค่าเซนเซอร์ และภาพกล้องได้ ควบคุมไม่ได้'}
+        {permission === 'control' && 'ดูได้ และสั่งเปิด-ปิดอุปกรณ์ได้ แก้ไขหรือลบไม่ได้'}
+        {permission === 'manage' && 'จัดการแทนคุณได้เกือบทั้งหมด (แก้ไข ตั้งค่า ลบ) แต่แชร์ต่อหรือโอนอุปกรณ์ไม่ได้'}
+      </Text>
 
       <Text style={styles.label}>แชร์อะไร</Text>
       <Segmented

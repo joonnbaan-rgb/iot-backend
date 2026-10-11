@@ -17,6 +17,9 @@ import type {
   LinkCode,
   MqttCredentials,
   NotificationSettingsView,
+  PendingShare,
+  PublicConfig,
+  Usage,
   User,
 } from '@/types/api';
 
@@ -29,6 +32,15 @@ export const authApi = {
 
   logout: (refreshToken: string) =>
     apiClient.post<{ message: string }>('/auth/logout', { refresh_token: refreshToken }).then((r) => r.data),
+
+  config: () => apiClient.get<PublicConfig>('/auth/config').then((r) => r.data),
+  forgotPassword: (email: string) =>
+    apiClient.post<{ message: string }>('/auth/forgot-password', { email }).then((r) => r.data),
+  resetPassword: (email: string, code: string, new_password: string) =>
+    apiClient.post<{ message: string }>('/auth/reset-password', { email, code, new_password }).then((r) => r.data),
+  changePassword: (current_password: string, new_password: string) =>
+    apiClient.post<{ message: string }>('/auth/change-password', { current_password, new_password }).then((r) => r.data),
+  usage: () => apiClient.get<Usage>('/auth/usage').then((r) => r.data),
 
   // backend ส่งกลับ payload ของ JWT ({ sub, email, role }) ไม่มี id -> แปลง sub เป็น id ให้แอปใช้เทียบเจ้าของอุปกรณ์
   me: () =>
@@ -57,6 +69,8 @@ export const devicesApi = {
     apiClient.patch<Device>(`/devices/${deviceId}`, body).then((r) => r.data),
 
   remove: (deviceId: string) => apiClient.delete(`/devices/${deviceId}`).then(() => undefined),
+  transfer: (deviceId: string, email: string) =>
+    apiClient.post<{ id: string; owner_email: string }>(`/devices/${deviceId}/transfer`, { email }).then((r) => r.data),
 
   issueMqtt: (deviceId: string) =>
     apiClient.post<MqttCredentials>(`/devices/${deviceId}/mqtt-credentials`).then((r) => r.data),
@@ -131,6 +145,8 @@ export const sharesApi = {
   update: (id: string, permission: SharePermission) =>
     apiClient.patch<Share>(`/shares/${id}`, { permission }).then((r) => r.data),
   revoke: (id: string) => apiClient.delete(`/shares/${id}`).then(() => undefined),
+  pending: () => apiClient.get<PendingShare[]>('/shares/pending').then((r) => r.data),
+  revokePending: (id: string) => apiClient.delete(`/shares/pending/${id}`).then(() => undefined),
 };
 
 export const discoveryApi = {

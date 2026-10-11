@@ -7,14 +7,14 @@ import { extractErrorMessage } from '@/api/client';
 import { getSocket } from '@/realtime/socket';
 import { Button } from '@/components/Button';
 import { colors, radius, spacing } from '@/theme';
-import type { Share } from '@/types/api';
+import type { PendingShare, Share, SharePermission } from '@/types/api';
 import type { DevicesStackParamList } from '@/navigation/types';
 
 type Props = NativeStackScreenProps<DevicesStackParamList, 'Sharing'>;
 
-const PERM: Record<Share['permission'], string> = { view: 'ดูอย่างเดียว', control: 'ควบคุมได้' };
+const PERM: Record<SharePermission, string> = { view: 'ดูอย่างเดียว', control: 'ควบคุมได้', manage: 'ผู้จัดการร่วม' };
 
-function scopeText(s: Share): string {
+function scopeText(s: { scope: Share['scope']; group_name: string | null; device_name: string | null }): string {
   if (s.scope === 'all') return 'ทุกอุปกรณ์';
   if (s.scope === 'group') return `กลุ่ม: ${s.group_name ?? '-'}`;
   return `อุปกรณ์: ${s.device_name ?? '-'}`;
@@ -23,14 +23,16 @@ function scopeText(s: Share): string {
 export function SharingScreen({ navigation }: Props) {
   const [outgoing, setOutgoing] = useState<Share[]>([]);
   const [incoming, setIncoming] = useState<Share[]>([]);
+  const [pending, setPending] = useState<PendingShare[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [o, i] = await Promise.all([sharesApi.outgoing(), sharesApi.incoming()]);
+      const [o, i, p] = await Promise.all([sharesApi.outgoing(), sharesApi.incoming(), sharesApi.pending()]);
       setOutgoing(o);
       setIncoming(i);
+      setPending(p);
     } catch (err) {
       Alert.alert('โหลดไม่สำเร็จ', extractErrorMessage(err));
     } finally {
@@ -76,9 +78,33 @@ export function SharingScreen({ navigation }: Props) {
     );
   }
 
-  async function togglePermission(s: Share) {
+  function changePermission(s: Share) {
+    const opts: SharePermission[] = ['view', 'control', 'manage'];
+    Alert.alert(
+      'เปลี่ยนสิทธิ์',
+      `${s.counterpart_email} (ปัจจุบัน: ${PERM[s.permission]})`,
+      [
+        ...opts
+          .filter((p) => p !== s.permission)
+          .map((p) => ({
+            text: PERM[p],
+            onPress: async () => {
+              try {
+                await sharesApi.update(s.id, p);
+                await load();
+              } catch (err) {
+                Alert.alert('ไม่สำเร็จ', extractErrorMessage(err));
+              }
+            },
+          })),
+        { text: 'ยกเลิก', style: 'cancel' as const },
+      ],
+    );
+  }
+
+  async function cancelPending(p: PendingShare) {
     try {
-      await sharesApi.update(s.id, s.permission === 'view' ? 'control' : 'view');
+      await sharesApi.revokePending(p.id);
       await load();
     } catch (err) {
       Alert.alert('ไม่สำเร็จ', extractErrorMessage(err));
@@ -103,15 +129,30 @@ export function SharingScreen({ navigation }: Props) {
           </Text>
           <View style={styles.row}>
             <Button
-              title={s.permission === 'view' ? 'ให้ควบคุมได้' : 'ลดเป็นดูอย่างเดียว'}
+              title="เปลี่ยนสิทธิ์"
               variant="secondary"
-              onPress={() => togglePermission(s)}
+              onPress={() => changePermission(s)}
               style={styles.btnFlex}
             />
             <Button title="ยกเลิก" variant="danger" onPress={() => revoke(s, false)} style={styles.btnFlex} />
           </View>
         </View>
       ))}
+
+      {pending.length > 0 && (
+        <>
+          <Text style={styles.section}>คำเชิญที่รอรับ (ยังไม่ได้สมัคร)</Text>
+          {pending.map((p) => (
+            <View key={p.id} style={styles.card}>
+              <Text style={styles.title}>{p.email}</Text>
+              <Text style={styles.meta}>
+                {scopeText(p)} · {PERM[p.permission]}
+              </Text>
+              <Button title="ยกเลิกคำเชิญ" variant="secondary" onPress={() => cancelPending(p)} />
+            </View>
+          ))}
+        </>
+      )}
 
       <Text style={styles.section}>ที่คนอื่นแชร์ให้ฉัน</Text>
       {incoming.length === 0 && <Text style={styles.empty}>ยังไม่มีใครแชร์ให้</Text>}

@@ -38,9 +38,9 @@ export function DeviceCard({ device, onPress }: { device: Device; onPress: () =>
         </View>
         <StatusBadge status={device.status} />
       </View>
-      {(device.access_level === 'view' || device.access_level === 'control') && (
+      {(device.access_level === 'view' || device.access_level === 'control' || device.access_level === 'manager') && (
         <Text style={styles.shared}>
-          แชร์จาก {device.owner_email ?? 'ผู้ใช้อื่น'} · {device.access_level === 'control' ? 'ควบคุมได้' : 'ดูอย่างเดียว'}
+          แชร์จาก {device.owner_email ?? 'ผู้ใช้อื่น'} · {device.access_level === 'manager' ? 'ผู้จัดการร่วม' : device.access_level === 'control' ? 'ควบคุมได้' : 'ดูอย่างเดียว'}
         </Text>
       )}
       <Text style={styles.lastSeen}>อัปเดตล่าสุด: {timeAgoTh(device.last_seen_at)}</Text>
