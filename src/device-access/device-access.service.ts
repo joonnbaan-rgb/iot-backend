@@ -14,7 +14,7 @@ import { User, UserRole } from '../users/entities/user.entity';
 export type AccessNeed = 'view' | 'control' | 'manage';
 
 /** ระดับสิทธิ์จริงที่ผู้ใช้มีต่ออุปกรณ์นั้น (ส่งกลับให้แอปใช้ซ่อน/แสดงปุ่ม) */
-export type AccessLevel = 'admin' | 'owner' | 'control' | 'view';
+export type AccessLevel = 'admin' | 'owner' | 'manager' | 'control' | 'view';
 
 const RANK: Record<AccessNeed, number> = { view: 1, control: 2, manage: 3 };
 
@@ -22,6 +22,7 @@ function levelRank(level: AccessLevel): number {
   switch (level) {
     case 'admin':
     case 'owner':
+    case 'manager': // ผู้จัดการร่วม (ได้รับแชร์สิทธิ์ manage จากเจ้าของ)
       return RANK.manage;
     case 'control':
       return RANK.control;
@@ -86,9 +87,16 @@ export class DeviceAccessService {
         WHERE d.id = $1 AND s.shared_with_id = $2 AND ${SHARE_COVERS_DEVICE}`,
       [device.id, user.sub],
     );
-    const shareLvl = rows.length === 0 ? 0 : rows.some((r) => r.permission === 'control') ? 2 : 1;
+    const shareLvl =
+      rows.length === 0
+        ? 0
+        : rows.some((r) => r.permission === 'manage')
+          ? 4
+          : rows.some((r) => r.permission === 'control')
+            ? 2
+            : 1;
     const best = Math.max(shareLvl, siteLvl);
-    return best === 2 ? 'control' : best === 1 ? 'view' : null;
+    return best === 4 ? 'manager' : best === 2 ? 'control' : best === 1 ? 'view' : null;
   }
 
   /**
@@ -110,7 +118,7 @@ export class DeviceAccessService {
     }
     this.redact(device, level);
     const result: DeviceWithAccess = Object.assign(device, { access_level: level });
-    if (level === 'control' || level === 'view') {
+    if (level === 'control' || level === 'view' || level === 'manager') {
       result.owner_email = await this.emailOf(device.owner_id);
     }
     return result;
@@ -138,7 +146,7 @@ export class DeviceAccessService {
 
     const shared: { id: string; lvl: number }[] = await this.deviceRepository.query(
       `SELECT id, MAX(lvl)::int AS lvl FROM (
-         SELECT d.id, CASE s.permission WHEN 'control' THEN 2 ELSE 1 END AS lvl
+         SELECT d.id, CASE s.permission WHEN 'manage' THEN 4 WHEN 'control' THEN 2 ELSE 1 END AS lvl
            FROM devices d JOIN device_shares s ON s.shared_with_id = $1 AND ${SHARE_COVERS_DEVICE}
           WHERE d.owner_id <> $1
          UNION ALL
@@ -161,7 +169,7 @@ export class DeviceAccessService {
       const emailById = new Map(owners.map((o) => [o.id, o.email]));
       for (const d of devices) {
         const l = lvlById.get(d.id) ?? 1;
-        const level: AccessLevel = l >= 3 ? 'owner' : l === 2 ? 'control' : 'view';
+        const level: AccessLevel = l >= 4 ? 'manager' : l === 3 ? 'owner' : l === 2 ? 'control' : 'view';
         this.redact(d, level);
         result.push(
           Object.assign(d, {
@@ -199,7 +207,7 @@ export class DeviceAccessService {
       WITH access AS (
         SELECT d.owner_id AS user_id, d.id AS device_id, 3 AS lvl FROM devices d WHERE d.owner_id IS NOT NULL
         UNION ALL
-        SELECT s.shared_with_id, d.id, CASE s.permission WHEN 'control' THEN 2 ELSE 1 END
+        SELECT s.shared_with_id, d.id, CASE s.permission WHEN 'manage' THEN 4 WHEN 'control' THEN 2 ELSE 1 END
           FROM device_shares s JOIN devices d ON ${SHARE_COVERS_DEVICE}
         UNION ALL
         SELECT sm.user_id, d.id, ${SITE_LVL}

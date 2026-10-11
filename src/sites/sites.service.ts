@@ -11,6 +11,7 @@ import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { UserRole, User } from '../users/entities/user.entity';
 import { DeviceAccessService } from '../device-access/device-access.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { QuotaService } from '../users/quota.service';
 import { Site } from './entities/site.entity';
 import { SiteMember, SiteRole } from './entities/site-member.entity';
 import { AddMemberDto, CreateSiteDto, UpdateMemberDto, UpdateSiteDto } from './dto/site.dto';
@@ -36,6 +37,7 @@ export class SitesService {
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly access: DeviceAccessService,
     private readonly gateway: RealtimeGateway,
+    private readonly quota: QuotaService,
   ) {}
 
   /** role ของผู้ใช้ในไซต์ (global admin ถือเป็น admin ของทุกไซต์) null = ไม่ใช่สมาชิก */
@@ -76,6 +78,7 @@ export class SitesService {
   }
 
   async create(user: CurrentUserPayload, dto: CreateSiteDto): Promise<Site> {
+    if (user.role !== UserRole.ADMIN) await this.quota.assertCanAdd(user.sub, 'sites');
     return this.sites.manager.transaction(async (m) => {
       const site = await m.getRepository(Site).save(
         m.getRepository(Site).create({ name: dto.name.trim(), kind: dto.kind, created_by: user.sub }),

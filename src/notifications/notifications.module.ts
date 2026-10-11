@@ -20,6 +20,6 @@ import { EmailService } from './email.service';
   ],
   controllers: [NotificationsController, LineWebhookController],
   providers: [NotificationsService, ChannelLinkService, TelegramService, LineService, EmailService],
-  exports: [NotificationsService],
+  exports: [NotificationsService, EmailService],
 })
 export class NotificationsModule {}

@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser, CurrentUserPayload } from './decorators/current-user.decorator';
 
@@ -39,6 +40,42 @@ export class AuthController {
   async logout(@Body() dto: RefreshTokenDto) {
     await this.authService.logout(dto.refresh_token);
     return { message: 'ออกจากระบบสำเร็จ' };
+  }
+
+  @Public()
+  @Get('config')
+  config() {
+    return this.authService.publicConfig();
+  }
+
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  async forgot(@Body() dto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(dto.email);
+    return { message: 'ถ้าอีเมลนี้มีในระบบ เราได้ส่งรหัสยืนยันไปให้แล้ว' };
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  async reset(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(dto.email, dto.code, dto.new_password);
+    return { message: 'ตั้งรหัสผ่านใหม่สำเร็จ' };
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('change-password')
+  async change(@CurrentUser() user: CurrentUserPayload, @Body() dto: ChangePasswordDto) {
+    await this.authService.changePassword(user.sub, dto.current_password, dto.new_password);
+    return { message: 'เปลี่ยนรหัสผ่านสำเร็จ' };
+  }
+
+  @Get('usage')
+  usage(@CurrentUser() user: CurrentUserPayload) {
+    return this.authService.usage(user.sub);
   }
 
   @Get('me')

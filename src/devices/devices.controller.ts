@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, P
 import { SkipThrottle } from '@nestjs/throttler';
 import { DevicesService } from './devices.service';
 import { CreateDeviceDto } from './dto/create-device.dto';
+import { TransferDeviceDto } from './dto/transfer-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
@@ -27,6 +28,16 @@ export class DevicesController {
   @Post()
   create(@CurrentUser() user: CurrentUserPayload, @Body() dto: CreateDeviceDto) {
     return this.devicesService.createFor(user, dto);
+  }
+
+  // โอนความเป็นเจ้าของ (เจ้าของหรือ admin ระบบ)
+  @Post(':id/transfer')
+  transfer(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TransferDeviceDto,
+  ) {
+    return this.devicesService.transferFor(user, id, dto.email);
   }
 
   @Patch(':id')

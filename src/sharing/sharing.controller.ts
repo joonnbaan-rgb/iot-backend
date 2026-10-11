@@ -51,6 +51,17 @@ export class SharingController {
     return this.shares.listIncoming(user);
   }
 
+  @Get('shares/pending')
+  pending(@CurrentUser() user: CurrentUserPayload) {
+    return this.shares.listPending(user);
+  }
+
+  @Delete('shares/pending/:id')
+  @HttpCode(204)
+  async revokePending(@CurrentUser() user: CurrentUserPayload, @Param('id', ParseUUIDPipe) id: string) {
+    await this.shares.revokePending(user, id);
+  }
+
   @Post('shares')
   createShare(@CurrentUser() user: CurrentUserPayload, @Body() dto: CreateShareDto) {
     return this.shares.create(user, dto);

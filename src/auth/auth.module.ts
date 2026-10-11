@@ -7,11 +7,15 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { InvitesService } from './invites.service';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { UsersModule } from '../users/users.module';
 import { InvitesController } from './invites.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, RefreshToken]),
+    NotificationsModule,
+    UsersModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

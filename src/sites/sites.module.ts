@@ -5,11 +5,12 @@ import { DeviceAccessModule } from '../device-access/device-access.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { Site } from './entities/site.entity';
 import { SiteMember } from './entities/site-member.entity';
+import { UsersModule } from '../users/users.module';
 import { SitesService } from './sites.service';
 import { SitesController } from './sites.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Site, SiteMember, User]), DeviceAccessModule, RealtimeModule],
+  imports: [TypeOrmModule.forFeature([Site, SiteMember, User]), DeviceAccessModule, RealtimeModule, UsersModule],
   controllers: [SitesController],
   providers: [SitesService],
 })

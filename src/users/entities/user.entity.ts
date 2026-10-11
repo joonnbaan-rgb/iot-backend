@@ -24,6 +24,20 @@ export class User {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
 
+  // active | suspended (ถูกระงับ: login/refresh ไม่ได้)
+  @Column({ type: 'varchar', length: 16, default: 'active' })
+  status: 'active' | 'suspended';
+
+  // โควตารายคน (null = ใช้ค่าเริ่มต้นจาก DEFAULT_DEVICE_QUOTA / DEFAULT_SITE_QUOTA) admin ไม่จำกัด
+  @Column({ type: 'int', nullable: true })
+  device_quota: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  site_quota: number | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_login_at: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 }

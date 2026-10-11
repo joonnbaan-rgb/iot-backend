@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -16,6 +17,9 @@ import { ensurePersonalSite } from '../sites/personal-site';
 import { InvitesService } from './invites.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { EmailService } from '../notifications/email.service';
+import { Logger } from '@nestjs/common';
+import { QuotaService } from '../users/quota.service';
 
 export interface AuthTokens {
   access_token: string;
@@ -33,7 +37,104 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly invites: InvitesService,
+    private readonly email: EmailService,
+    private readonly quota: QuotaService,
   ) {}
+
+  private readonly logger = new Logger(AuthService.name);
+
+  /** ค่าตั้งค่าสาธารณะที่แอปใช้ปรับหน้าสมัคร/ลืมรหัสผ่าน (ก่อน login) */
+  publicConfig() {
+    return {
+      registration_mode: this.configService.get<string>('REGISTRATION_MODE', 'open'),
+      password_reset_available: this.email.isConfigured(),
+    };
+  }
+
+  /** ปริมาณการใช้งานเทียบโควตาของผู้ใช้ปัจจุบัน */
+  usage(userId: string) {
+    return this.quota.usage(userId);
+  }
+
+  /** รับแชร์ที่ค้างอยู่ (ผู้อื่นแชร์ให้อีเมลนี้ก่อนสมัคร) */
+  private async claimPendingShares(userId: string, email: string): Promise<void> {
+    await this.userRepository.query(
+      `WITH p AS (DELETE FROM pending_shares WHERE LOWER(email) = LOWER($2) RETURNING owner_id, device_id, group_id, permission)
+       INSERT INTO device_shares (owner_id, shared_with_id, device_id, group_id, permission)
+       SELECT owner_id, $1, device_id, group_id, permission FROM p WHERE owner_id <> $1
+       ON CONFLICT DO NOTHING`,
+      [userId, email],
+    );
+  }
+
+  async forgotPassword(emailRaw: string): Promise<void> {
+    // ตอบเหมือนกันเสมอ ไม่บอกว่าอีเมลนี้มีในระบบหรือไม่
+    const user = await this.userRepository
+      .createQueryBuilder('u')
+      .where('LOWER(u.email) = LOWER(:e)', { e: emailRaw.trim() })
+      .getOne();
+    if (!user || user.status !== 'active') return;
+    const recent = await this.userRepository.query(
+      `SELECT 1 FROM password_resets WHERE user_id = $1 AND created_at > now() - interval '60 seconds'`,
+      [user.id],
+    );
+    if (recent.length > 0) return;
+    const code = String(crypto.randomInt(0, 100_000_000)).padStart(8, '0');
+    await this.userRepository.query(
+      `INSERT INTO password_resets (user_id, code_hash, expires_at) VALUES ($1,$2,now() + interval '30 minutes')`,
+      [user.id, this.hashToken(code)],
+    );
+    if (this.email.isConfigured()) {
+      await this.email
+        .send(
+          user.email,
+          'รหัสรีเซ็ตรหัสผ่าน',
+          `รหัสยืนยันของคุณคือ ${code}\nใช้ได้ 30 นาที ถ้าคุณไม่ได้ขอ ให้เพิกเฉยต่ออีเมลนี้`,
+        )
+        .catch((e) => this.logger.warn(`ส่งอีเมลรีเซ็ตรหัสผ่านไม่สำเร็จ: ${(e as Error).message}`));
+    } else if (this.configService.get<string>('NODE_ENV') !== 'production') {
+      this.logger.warn(`[dev] ยังไม่ตั้งค่าอีเมล — รหัสรีเซ็ตของ ${user.email} คือ ${code}`);
+    }
+  }
+
+  async resetPassword(emailRaw: string, code: string, newPassword: string): Promise<void> {
+    const bad = new BadRequestException('รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
+    const user = await this.userRepository
+      .createQueryBuilder('u')
+      .where('LOWER(u.email) = LOWER(:e)', { e: emailRaw.trim() })
+      .getOne();
+    if (!user) throw bad;
+    const [reset] = await this.userRepository.query(
+      `SELECT id, code_hash, attempts FROM password_resets
+        WHERE user_id = $1 AND used_at IS NULL AND expires_at > now()
+        ORDER BY created_at DESC LIMIT 1`,
+      [user.id],
+    );
+    if (!reset || reset.attempts >= 5) throw bad;
+    await this.userRepository.query(`UPDATE password_resets SET attempts = attempts + 1 WHERE id = $1`, [reset.id]);
+    const a = Buffer.from(reset.code_hash);
+    const b = Buffer.from(this.hashToken(code));
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw bad;
+
+    const saltRounds = parseInt(this.configService.get<string>('BCRYPT_SALT_ROUNDS', '10'), 10);
+    user.password_hash = await bcrypt.hash(newPassword, saltRounds);
+    await this.userRepository.save(user);
+    await this.userRepository.query(`UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, [user.id]);
+    await this.userRepository.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [user.id]);
+  }
+
+  async changePassword(userId: string, current: string, next: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    if (!(await bcrypt.compare(current, user.password_hash))) {
+      throw new BadRequestException('รหัสผ่านปัจจุบันไม่ถูกต้อง');
+    }
+    const saltRounds = parseInt(this.configService.get<string>('BCRYPT_SALT_ROUNDS', '10'), 10);
+    user.password_hash = await bcrypt.hash(next, saltRounds);
+    await this.userRepository.save(user);
+    // ออกจากระบบอุปกรณ์อื่นทั้งหมด (refresh token เดิมใช้ไม่ได้อีก)
+    await this.userRepository.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
+  }
 
   async register(dto: RegisterDto): Promise<Omit<User, 'password_hash'>> {
     const existing = await this.userRepository.findOne({ where: { email: dto.email } });
@@ -59,6 +160,7 @@ export class AuthService {
       const user = this.userRepository.create({ email: dto.email, password_hash, role });
       await this.userRepository.save(user);
       await ensurePersonalSite(this.userRepository.manager, user.id);
+      await this.claimPendingShares(user.id, user.email);
       if (inviteId) await this.invites.markUsed(inviteId, user.id);
 
       const { password_hash: _omit, ...safeUser } = user;
@@ -78,6 +180,10 @@ export class AuthService {
     if (!passwordMatches) {
       throw new UnauthorizedException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
     }
+    if (user.status === 'suspended') {
+      throw new ForbiddenException('บัญชีนี้ถูกระงับ กรุณาติดต่อผู้ดูแลระบบ');
+    }
+    await this.userRepository.update(user.id, { last_login_at: new Date() });
 
     return this.issueTokens(user);
   }
@@ -100,6 +206,9 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { id: stored.user_id } });
     if (!user) {
       throw new UnauthorizedException('ไม่พบผู้ใช้ของ token นี้แล้ว');
+    }
+    if (user.status === 'suspended') {
+      throw new UnauthorizedException('บัญชีนี้ถูกระงับ');
     }
 
     return this.issueTokens(user);

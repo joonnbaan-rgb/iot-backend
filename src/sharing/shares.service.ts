@@ -6,9 +6,22 @@ import { Device } from '../devices/entities/device.entity';
 import { User } from '../users/entities/user.entity';
 import { DeviceAccessService } from '../device-access/device-access.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { EmailService } from '../notifications/email.service';
 import { DeviceGroup } from './entities/device-group.entity';
 import { DeviceShare, SharePermission } from './entities/device-share.entity';
 import { CreateShareDto } from './dto/share.dto';
+
+const PERM_RANK: Record<SharePermission, number> = { view: 1, control: 2, manage: 3 };
+
+export interface PendingShareView {
+  id: string;
+  email: string;
+  permission: SharePermission;
+  scope: 'all' | 'device' | 'group';
+  device_name: string | null;
+  group_name: string | null;
+  created_at: Date;
+}
 
 export interface ShareView {
   id: string;
@@ -33,6 +46,7 @@ export class SharesService {
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly access: DeviceAccessService,
     private readonly gateway: RealtimeGateway,
+    private readonly email: EmailService,
   ) {}
 
   // ---------- ภายใน ----------
@@ -63,12 +77,13 @@ export class SharesService {
   // ---------- สร้าง/ดู/แก้/ถอน ----------
 
   async create(user: CurrentUserPayload, dto: CreateShareDto): Promise<ShareView[]> {
+    const email = dto.email.trim();
     const target = await this.users
       .createQueryBuilder('u')
-      .where('LOWER(u.email) = LOWER(:email)', { email: dto.email.trim() })
+      .where('LOWER(u.email) = LOWER(:email)', { email })
       .getOne();
-    if (!target) throw new NotFoundException('ไม่พบบัญชีผู้ใช้ที่มีอีเมลนี้');
-    if (target.id === user.sub) throw new BadRequestException('แชร์ให้ตัวเองไม่ได้');
+    if (target && target.id === user.sub) throw new BadRequestException('แชร์ให้ตัวเองไม่ได้');
+    if (target && target.status !== 'active') throw new BadRequestException('บัญชีปลายทางถูกระงับ');
 
     const targets: { device_id: string | null; group_id: string | null }[] = [];
     if (dto.scope === 'all') {
@@ -88,6 +103,12 @@ export class SharesService {
       for (const id of ids) targets.push({ device_id: id, group_id: null });
     }
 
+    // อีเมลนี้ยังไม่ได้สมัคร: เก็บเป็นคำเชิญแชร์ที่รอรับ จะมีผลอัตโนมัติเมื่อสมัครด้วยอีเมลนี้
+    if (!target) {
+      await this.createPending(user, email, dto.permission, targets);
+      return [];
+    }
+
     let downgraded = false;
     const saved: DeviceShare[] = [];
     for (const t of targets) {
@@ -98,7 +119,7 @@ export class SharesService {
         .andWhere(t.group_id ? 's.group_id = :g' : 's.group_id IS NULL', { g: t.group_id })
         .getOne();
       if (existing) {
-        if (existing.permission === 'control' && dto.permission === 'view') downgraded = true;
+        if (PERM_RANK[existing.permission] > PERM_RANK[dto.permission]) downgraded = true;
         existing.permission = dto.permission;
         saved.push(await this.shares.save(existing));
       } else {
@@ -122,6 +143,60 @@ export class SharesService {
     return views;
   }
 
+  private async createPending(
+    user: CurrentUserPayload,
+    email: string,
+    permission: SharePermission,
+    targets: { device_id: string | null; group_id: string | null }[],
+  ): Promise<void> {
+    const [{ n }] = await this.shares.query(`SELECT COUNT(*)::int AS n FROM pending_shares WHERE owner_id = $1`, [user.sub]);
+    if (n + targets.length > 50) throw new BadRequestException('มีคำเชิญที่รอรับเกิน 50 รายการ ยกเลิกบางรายการก่อน');
+    for (const t of targets) {
+      const dup = await this.shares.query(
+        `SELECT id FROM pending_shares
+          WHERE owner_id = $1 AND LOWER(email) = LOWER($2)
+            AND device_id IS NOT DISTINCT FROM $3 AND group_id IS NOT DISTINCT FROM $4`,
+        [user.sub, email, t.device_id, t.group_id],
+      );
+      if (dup.length > 0) {
+        await this.shares.query(`UPDATE pending_shares SET permission = $2 WHERE id = $1`, [dup[0].id, permission]);
+      } else {
+        await this.shares.query(
+          `INSERT INTO pending_shares (owner_id, email, device_id, group_id, permission) VALUES ($1,$2,$3,$4,$5)`,
+          [user.sub, email.toLowerCase(), t.device_id, t.group_id, permission],
+        );
+      }
+    }
+    if (this.email.isConfigured()) {
+      this.email
+        .send(
+          email,
+          'มีคนแชร์อุปกรณ์ IoT ให้คุณ',
+          `${user.email} ต้องการแชร์อุปกรณ์ให้คุณ\nสมัครสมาชิกด้วยอีเมลนี้ (${email}) ในแอป แล้วจะเห็นอุปกรณ์ที่แชร์ให้ทันที`,
+        )
+        .catch(() => undefined); // ส่งอีเมลไม่สำเร็จไม่ทำให้การแชร์ล้ม
+    }
+  }
+
+  async listPending(user: CurrentUserPayload): Promise<PendingShareView[]> {
+    return this.shares.query(
+      `SELECT p.id, p.email, p.permission, p.created_at,
+              CASE WHEN p.device_id IS NOT NULL THEN 'device' WHEN p.group_id IS NOT NULL THEN 'group' ELSE 'all' END AS scope,
+              d.name AS device_name, g.name AS group_name
+         FROM pending_shares p
+         LEFT JOIN devices d ON d.id = p.device_id
+         LEFT JOIN device_groups g ON g.id = p.group_id
+        WHERE p.owner_id = $1 ORDER BY p.created_at DESC`,
+      [user.sub],
+    );
+  }
+
+  async revokePending(user: CurrentUserPayload, id: string): Promise<void> {
+    const r = await this.shares.query(`DELETE FROM pending_shares WHERE id = $1 AND owner_id = $2 RETURNING id`, [id, user.sub]);
+    const n = Array.isArray(r) && Array.isArray(r[0]) ? r[0].length : Array.isArray(r) ? r.length : 0;
+    if (n === 0) throw new NotFoundException('ไม่พบคำเชิญนี้');
+  }
+
   async listOutgoing(user: CurrentUserPayload): Promise<ShareView[]> {
     const rows = await this.shares.find({ where: { owner_id: user.sub }, order: { created_at: 'DESC' } });
     return this.toViews(rows, 'outgoing');
@@ -135,7 +210,7 @@ export class SharesService {
   async updatePermission(user: CurrentUserPayload, id: string, permission: SharePermission): Promise<ShareView> {
     const share = await this.shares.findOne({ where: { id, owner_id: user.sub } });
     if (!share) throw new NotFoundException('ไม่พบการแชร์นี้');
-    const downgraded = share.permission === 'control' && permission === 'view';
+    const downgraded = PERM_RANK[share.permission] > PERM_RANK[permission];
     share.permission = permission;
     await this.shares.save(share);
     if (downgraded) await this.afterAccessChanged([share.shared_with_id]);

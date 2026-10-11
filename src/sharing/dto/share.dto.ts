@@ -4,8 +4,8 @@ export class CreateShareDto {
   @IsEmail()
   email: string;
 
-  @IsIn(['view', 'control'])
-  permission: 'view' | 'control';
+  @IsIn(['view', 'control', 'manage'])
+  permission: 'view' | 'control' | 'manage';
 
   // all = ทุกอุปกรณ์ของฉัน (รวมที่เพิ่มทีหลัง), devices = เลือกบางอุปกรณ์, group = ทั้งกลุ่ม
   @IsIn(['all', 'devices', 'group'])
@@ -24,6 +24,6 @@ export class CreateShareDto {
 }
 
 export class UpdateShareDto {
-  @IsIn(['view', 'control'])
-  permission: 'view' | 'control';
+  @IsIn(['view', 'control', 'manage'])
+  permission: 'view' | 'control' | 'manage';
 }

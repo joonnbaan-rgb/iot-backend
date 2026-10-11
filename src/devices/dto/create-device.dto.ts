@@ -34,4 +34,9 @@ export class CreateDeviceDto {
   @IsOptional()
   @IsUUID()
   site_id?: string;
+
+  // เฉพาะ admin ระบบ: สร้างอุปกรณ์แทนผู้ใช้คนนี้ (ผู้ใช้จะเป็นเจ้าของ/ผู้ดูแลอุปกรณ์)
+  @IsOptional()
+  @IsUUID()
+  owner_id?: string;
 }
