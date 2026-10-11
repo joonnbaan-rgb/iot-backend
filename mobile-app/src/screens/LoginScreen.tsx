@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '@/contexts/AuthContext';
-import { extractErrorMessage } from '@/api/client';
+import { extractErrorMessage, isEmailNotVerified } from '@/api/client';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { colors, spacing } from '@/theme';
@@ -25,6 +25,10 @@ export function LoginScreen({ navigation }: Props) {
     try {
       await login(email.trim(), password);
     } catch (err) {
+      if (isEmailNotVerified(err)) {
+        navigation.navigate('VerifyEmail', { email: email.trim() });
+        return;
+      }
       Alert.alert('เข้าสู่ระบบไม่สำเร็จ', extractErrorMessage(err));
     } finally {
       setLoading(false);

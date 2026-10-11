@@ -25,7 +25,7 @@ import type {
 
 export const authApi = {
   register: (email: string, password: string, invite_code?: string) =>
-    apiClient.post<Omit<User, 'password_hash'>>('/auth/register', { email, password, invite_code: invite_code || undefined }).then((r) => r.data),
+    apiClient.post<Omit<User, 'password_hash'> & { verification_required: boolean }>('/auth/register', { email, password, invite_code: invite_code || undefined }).then((r) => r.data),
 
   login: (email: string, password: string) =>
     apiClient.post<AuthTokens>('/auth/login', { email, password }).then((r) => r.data),
@@ -34,6 +34,10 @@ export const authApi = {
     apiClient.post<{ message: string }>('/auth/logout', { refresh_token: refreshToken }).then((r) => r.data),
 
   config: () => apiClient.get<PublicConfig>('/auth/config').then((r) => r.data),
+  verifyEmail: (email: string, code: string) =>
+    apiClient.post<{ message: string }>('/auth/verify-email', { email, code }).then((r) => r.data),
+  resendVerification: (email: string) =>
+    apiClient.post<{ message: string }>('/auth/resend-verification', { email }).then((r) => r.data),
   forgotPassword: (email: string) =>
     apiClient.post<{ message: string }>('/auth/forgot-password', { email }).then((r) => r.data),
   resetPassword: (email: string, code: string, new_password: string) =>

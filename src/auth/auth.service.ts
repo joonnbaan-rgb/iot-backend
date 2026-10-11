@@ -48,7 +48,69 @@ export class AuthService {
     return {
       registration_mode: this.configService.get<string>('REGISTRATION_MODE', 'open'),
       password_reset_available: this.email.isConfigured(),
+      email_verification_required: this.verificationRequired(),
     };
+  }
+
+  /** ต้องยืนยันอีเมลก่อนใช้งานหรือไม่ (REQUIRE_EMAIL_VERIFICATION=true และตั้งค่าอีเมลแล้ว; ถ้ายังไม่ตั้งอีเมลจะข้ามเพื่อไม่ให้ล็อกผู้ใช้ทั้งหมด) */
+  private verificationRequired(): boolean {
+    const want = this.configService.get<string>('REQUIRE_EMAIL_VERIFICATION', 'false') === 'true';
+    if (want && !this.email.isConfigured()) {
+      this.logger.warn('REQUIRE_EMAIL_VERIFICATION=true แต่ยังไม่ได้ตั้ง RESEND_API_KEY/EMAIL_FROM — ข้ามการยืนยันอีเมล');
+      return false;
+    }
+    return want;
+  }
+
+  private async sendVerificationCode(user: User): Promise<void> {
+    const recent = await this.userRepository.query(
+      `SELECT 1 FROM email_verifications WHERE user_id = $1 AND created_at > now() - interval '60 seconds'`,
+      [user.id],
+    );
+    if (recent.length > 0) return;
+    const code = String(crypto.randomInt(0, 100_000_000)).padStart(8, '0');
+    await this.userRepository.query(
+      `INSERT INTO email_verifications (user_id, code_hash, expires_at) VALUES ($1,$2,now() + interval '30 minutes')`,
+      [user.id, this.hashToken(code)],
+    );
+    await this.email
+      .send(user.email, 'ยืนยันอีเมลของคุณ', `รหัสยืนยันอีเมลของคุณคือ ${code}\nใช้ได้ 30 นาที`)
+      .catch((e) => this.logger.warn(`ส่งอีเมลยืนยันไม่สำเร็จ: ${(e as Error).message}`));
+  }
+
+  async resendVerification(emailRaw: string): Promise<void> {
+    const user = await this.userRepository
+      .createQueryBuilder('u')
+      .where('LOWER(u.email) = LOWER(:e)', { e: emailRaw.trim() })
+      .getOne();
+    // ตอบเหมือนกันเสมอ ไม่เปิดเผยว่ามีอีเมลนี้หรือไม่
+    if (!user || user.email_verified_at || !this.verificationRequired()) return;
+    await this.sendVerificationCode(user);
+  }
+
+  async verifyEmail(emailRaw: string, code: string): Promise<void> {
+    const bad = new BadRequestException('รหัสยืนยันไม่ถูกต้องหรือหมดอายุ');
+    const user = await this.userRepository
+      .createQueryBuilder('u')
+      .where('LOWER(u.email) = LOWER(:e)', { e: emailRaw.trim() })
+      .getOne();
+    if (!user) throw bad;
+    if (user.email_verified_at) return;
+    const [row] = await this.userRepository.query(
+      `SELECT id, code_hash, attempts FROM email_verifications
+        WHERE user_id = $1 AND used_at IS NULL AND expires_at > now()
+        ORDER BY created_at DESC LIMIT 1`,
+      [user.id],
+    );
+    if (!row || row.attempts >= 5) throw bad;
+    await this.userRepository.query(`UPDATE email_verifications SET attempts = attempts + 1 WHERE id = $1`, [row.id]);
+    const a = Buffer.from(row.code_hash);
+    const b = Buffer.from(this.hashToken(code));
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw bad;
+    await this.userRepository.query(`UPDATE email_verifications SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, [user.id]);
+    await this.userRepository.update(user.id, { email_verified_at: new Date() });
+    // รับแชร์ที่ค้างหลังยืนยันเท่านั้น กันคนสมัครด้วยอีเมลของคนอื่นแล้วรับแชร์ไป
+    await this.claimPendingShares(user.id, user.email);
   }
 
   /** ปริมาณการใช้งานเทียบโควตาของผู้ใช้ปัจจุบัน */
@@ -118,7 +180,11 @@ export class AuthService {
 
     const saltRounds = parseInt(this.configService.get<string>('BCRYPT_SALT_ROUNDS', '10'), 10);
     user.password_hash = await bcrypt.hash(newPassword, saltRounds);
+    // รับรหัสทางอีเมลได้ = เป็นเจ้าของอีเมลจริง ถือว่ายืนยันแล้ว (ช่วยกรณีมีคนสมัครล่วงหน้าด้วยอีเมลนี้)
+    const wasUnverified = !user.email_verified_at;
+    if (wasUnverified) user.email_verified_at = new Date();
     await this.userRepository.save(user);
+    if (wasUnverified) await this.claimPendingShares(user.id, user.email);
     await this.userRepository.query(`UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, [user.id]);
     await this.userRepository.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [user.id]);
   }
@@ -136,7 +202,7 @@ export class AuthService {
     await this.userRepository.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
   }
 
-  async register(dto: RegisterDto): Promise<Omit<User, 'password_hash'>> {
+  async register(dto: RegisterDto): Promise<Omit<User, 'password_hash'> & { verification_required: boolean }> {
     const existing = await this.userRepository.findOne({ where: { email: dto.email } });
     if (existing) {
       throw new ConflictException('อีเมลนี้ถูกใช้สมัครแล้ว');
@@ -157,14 +223,23 @@ export class AuthService {
       const password_hash = await bcrypt.hash(dto.password, saltRounds);
       const role = userCount === 0 ? UserRole.ADMIN : UserRole.USER;
 
-      const user = this.userRepository.create({ email: dto.email, password_hash, role });
+      // ผู้ใช้คนแรก (admin) และผู้ที่สมัครด้วยรหัสเชิญ (ยืนยันตัวตนผ่านใบเชิญแล้ว) ไม่ต้องยืนยันอีเมลซ้ำ
+      const needVerify = this.verificationRequired() && userCount > 0 && !inviteId;
+
+      const user = this.userRepository.create({
+        email: dto.email,
+        password_hash,
+        role,
+        email_verified_at: needVerify ? null : new Date(),
+      });
       await this.userRepository.save(user);
       await ensurePersonalSite(this.userRepository.manager, user.id);
-      await this.claimPendingShares(user.id, user.email);
+      if (!needVerify) await this.claimPendingShares(user.id, user.email);
       if (inviteId) await this.invites.markUsed(inviteId, user.id);
+      if (needVerify) await this.sendVerificationCode(user);
 
       const { password_hash: _omit, ...safeUser } = user;
-      return safeUser;
+      return { ...safeUser, verification_required: needVerify };
     } catch (err) {
       if (inviteId) await this.invites.release(inviteId).catch(() => undefined);
       throw err;
@@ -182,6 +257,9 @@ export class AuthService {
     }
     if (user.status === 'suspended') {
       throw new ForbiddenException('บัญชีนี้ถูกระงับ กรุณาติดต่อผู้ดูแลระบบ');
+    }
+    if (!user.email_verified_at && this.verificationRequired()) {
+      throw new ForbiddenException({ message: 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ', code: 'EMAIL_NOT_VERIFIED' });
     }
     await this.userRepository.update(user.id, { last_login_at: new Date() });
 

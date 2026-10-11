@@ -115,3 +115,8 @@ export function extractErrorMessage(error: unknown, fallback = 'เกิดข�
   }
   return fallback;
 }
+
+/** backend ตอบ 403 code=EMAIL_NOT_VERIFIED เมื่อ login ด้วยบัญชีที่ยังไม่ยืนยันอีเมล */
+export function isEmailNotVerified(error: unknown): boolean {
+  return axios.isAxiosError(error) && (error.response?.data as { code?: string } | undefined)?.code === 'EMAIL_NOT_VERIFIED';
+}

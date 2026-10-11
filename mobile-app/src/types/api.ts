@@ -176,6 +176,7 @@ export interface LinkCode {
 export interface PublicConfig {
   registration_mode: 'open' | 'invite' | 'closed';
   password_reset_available: boolean;
+  email_verification_required: boolean;
 }
 
 export interface Usage {

@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from './dto/password.dto';
+import { ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto, VerifyEmailDto } from './dto/password.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser, CurrentUserPayload } from './decorators/current-user.decorator';
 
@@ -48,6 +48,24 @@ export class AuthController {
   @Get('config')
   config() {
     return this.authService.publicConfig();
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('verify-email')
+  async verify(@Body() dto: VerifyEmailDto) {
+    await this.authService.verifyEmail(dto.email, dto.code);
+    return { message: 'ยืนยันอีเมลสำเร็จ' };
+  }
+
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('resend-verification')
+  async resend(@Body() dto: ForgotPasswordDto) {
+    await this.authService.resendVerification(dto.email);
+    return { message: 'ถ้าอีเมลนี้รอการยืนยันอยู่ เราได้ส่งรหัสใหม่ไปให้แล้ว' };
   }
 
   @Throttle({ default: { limit: 3, ttl: 60000 } })

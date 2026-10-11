@@ -38,6 +38,10 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   last_login_at: Date | null;
 
+  // null = ยังไม่ยืนยันอีเมล
+  @Column({ type: 'timestamptz', nullable: true })
+  email_verified_at: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 }

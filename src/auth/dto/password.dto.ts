@@ -29,3 +29,12 @@ export class ChangePasswordDto {
   @MaxLength(128)
   new_password: string;
 }
+
+export class VerifyEmailDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @Length(8, 8, { message: 'รหัสยืนยันต้องมี 8 หลัก' })
+  code: string;
+}

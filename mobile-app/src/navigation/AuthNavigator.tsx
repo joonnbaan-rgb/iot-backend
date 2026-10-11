@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen } from '@/screens/LoginScreen';
 import { RegisterScreen } from '@/screens/RegisterScreen';
 import { ForgotPasswordScreen } from '@/screens/ForgotPasswordScreen';
+import { VerifyEmailScreen } from '@/screens/VerifyEmailScreen';
 import { colors } from '@/theme';
 import type { AuthStackParamList } from './types';
 
@@ -13,6 +14,7 @@ export function AuthNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </Stack.Navigator>
   );

@@ -40,7 +40,8 @@ export function RegisterScreen({ navigation }: Props) {
     }
     setLoading(true);
     try {
-      await register(email.trim(), password, inviteCode.trim() || undefined);
+      const r = await register(email.trim(), password, inviteCode.trim() || undefined);
+      if (r.needsVerification) navigation.navigate('VerifyEmail', { email: email.trim() });
     } catch (err) {
       Alert.alert('สมัครสมาชิกไม่สำเร็จ', extractErrorMessage(err));
     } finally {
