@@ -55,11 +55,12 @@ export class AuthService {
   /** ต้องยืนยันอีเมลก่อนใช้งานหรือไม่ (REQUIRE_EMAIL_VERIFICATION=true และตั้งค่าอีเมลแล้ว; ถ้ายังไม่ตั้งอีเมลจะข้ามเพื่อไม่ให้ล็อกผู้ใช้ทั้งหมด) */
   private verificationRequired(): boolean {
     const want = this.configService.get<string>('REQUIRE_EMAIL_VERIFICATION', 'false') === 'true';
-    if (want && !this.email.isConfigured()) {
-      this.logger.warn('REQUIRE_EMAIL_VERIFICATION=true แต่ยังไม่ได้ตั้ง RESEND_API_KEY/EMAIL_FROM — ข้ามการยืนยันอีเมล');
-      return false;
-    }
-    return want;
+    if (!want) return false;
+    if (this.email.isConfigured()) return true;
+    // ไม่มีอีเมล: โหมดพัฒนายังบังคับยืนยัน (รหัสพิมพ์ลงล็อก) แต่ production ข้ามเพื่อไม่ให้ผู้ใช้ทั้งหมดเข้าไม่ได้
+    if (this.configService.get<string>('NODE_ENV') !== 'production') return true;
+    this.logger.warn('REQUIRE_EMAIL_VERIFICATION=true แต่ยังไม่ได้ตั้ง RESEND_API_KEY/EMAIL_FROM — ข้ามการยืนยันอีเมล');
+    return false;
   }
 
   private async sendVerificationCode(user: User): Promise<void> {
@@ -73,6 +74,10 @@ export class AuthService {
       `INSERT INTO email_verifications (user_id, code_hash, expires_at) VALUES ($1,$2,now() + interval '30 minutes')`,
       [user.id, this.hashToken(code)],
     );
+    if (!this.email.isConfigured()) {
+      this.logger.warn(`[dev] ยังไม่ตั้งค่าอีเมล — รหัสยืนยันของ ${user.email} คือ ${code}`);
+      return;
+    }
     await this.email
       .send(user.email, 'ยืนยันอีเมลของคุณ', `รหัสยืนยันอีเมลของคุณคือ ${code}\nใช้ได้ 30 นาที`)
       .catch((e) => this.logger.warn(`ส่งอีเมลยืนยันไม่สำเร็จ: ${(e as Error).message}`));
