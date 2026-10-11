@@ -1,5 +1,5 @@
 # กฎแจ้งเตือน (ดูสถานะได้ที่ Prometheus > Alerts หรือใน Grafana)
-# ยังไม่ได้ต่อ Alertmanager — ถ้าต้องการให้ส่ง LINE/Telegram/อีเมล ให้เพิ่ม Alertmanager ภายหลัง
+# ส่งต่อผ่าน Alertmanager -> backend (/internal/alerts) -> LINE/Telegram/อีเมลของผู้ดูแลระบบ (ดู docs/ALERTING.md)
 groups:
   - name: iot
     rules:

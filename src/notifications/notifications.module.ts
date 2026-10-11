@@ -8,6 +8,7 @@ import { NotificationSettings } from './entities/notification-settings.entity';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { LineWebhookController } from './line-webhook.controller';
+import { AlertWebhookController } from './alert-webhook.controller';
 import { ChannelLinkService } from './channel-link.service';
 import { TelegramService } from './telegram.service';
 import { LineService } from './line.service';
@@ -18,7 +19,7 @@ import { EmailService } from './email.service';
     TypeOrmModule.forFeature([NotificationLog, NotificationChannel, NotificationSettings, User]),
     DeviceAccessModule,
   ],
-  controllers: [NotificationsController, LineWebhookController],
+  controllers: [NotificationsController, LineWebhookController, AlertWebhookController],
   providers: [NotificationsService, ChannelLinkService, TelegramService, LineService, EmailService],
   exports: [NotificationsService, EmailService],
 })

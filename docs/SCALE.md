@@ -79,7 +79,7 @@ docker compose exec timescaledb psql -U iot -d iot_backend -c "SELECT view_name 
 - dev: Grafana http://localhost:3001 (admin / admin123) → โฟลเดอร์ **IoT** → *IoT Overview*
 - production: `https://monitor.<โดเมน>` ผู้ใช้ `admin` รหัสผ่านอยู่ใน `deploy/.env.prod` (`GRAFANA_ADMIN_PASSWORD`) ต้องมี DNS `monitor.<โดเมน>`
 - แดชบอร์ดมีสถานะท่อ (เข้าคิว/ประมวลผล, คิวค้าง, lag, ขนาด/เวลา batch), HTTP, event loop, CPU, RAM
-- กฎแจ้งเตือน (`deploy/prometheus/alerts.yml`): backend ล่ม, คิวค้าง > 5000, lag p95 > 10s, มี dead-letter, 5xx > 5%, event loop หน่วง — **ยังไม่ส่งออกไปไหน** (ดูได้ที่ Prometheus > Alerts) ถ้าต้องการส่ง LINE/Telegram ต้องเพิ่ม Alertmanager
+- กฎแจ้งเตือน (`deploy/prometheus/alerts.yml`): backend ล่ม, คิวค้าง > 5000, lag p95 > 10s, มี dead-letter, 5xx > 5%, event loop หน่วง — ส่งเข้า LINE/Telegram/อีเมลของผู้ดูแลระบบผ่าน Alertmanager (ดู [ALERTING.md](ALERTING.md))
 - ยังไม่ได้เก็บ metrics ของ Postgres/Redis/EMQX (ต้องเพิ่ม exporter แยก)
 
 ## Load test

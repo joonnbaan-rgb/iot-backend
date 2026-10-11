@@ -230,6 +230,22 @@ services:
       - prometheus_data:/prometheus
     depends_on:
       - backend
+      - alertmanager
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    environment:
+      INTERNAL_AUTH_TOKEN: ${INTERNAL_AUTH_TOKEN}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - printf '%s' "$$INTERNAL_AUTH_TOKEN" > /tmp/am-token && exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    depends_on:
+      - backend
 
   grafana:
     image: grafana/grafana:11.3.0
@@ -250,6 +266,7 @@ volumes:
   caddy_data:
   caddy_config:
   prometheus_data:
+  alertmanager_data:
   grafana_data:
   mqtt_certs:
   emqx_data:

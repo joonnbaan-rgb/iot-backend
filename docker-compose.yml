@@ -126,6 +126,22 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: iot-alertmanager
+    restart: unless-stopped
+    environment:
+      INTERNAL_AUTH_TOKEN: ${INTERNAL_AUTH_TOKEN:-}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - printf '%s' "$$INTERNAL_AUTH_TOKEN" > /tmp/am-token && exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager
+    volumes:
+      - ./phase8/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+
   grafana:
     image: grafana/grafana:latest
     container_name: iot-grafana
@@ -160,3 +176,4 @@ volumes:
   minio_data:
   prometheus_data:
   grafana_data:
+  alertmanager_data:

@@ -9,11 +9,13 @@ import { TelegramService } from './telegram.service';
 import { LineService } from './line.service';
 import { EmailService } from './email.service';
 import { DeviceAccessService } from '../device-access/device-access.service';
+import { User, UserRole } from '../users/entities/user.entity';
 
 const EVENT_TH: Record<string, string> = {
   device_offline: 'อุปกรณ์ออฟไลน์',
   rule_triggered: 'กฎทำงาน',
   command_timeout: 'คำสั่งหมดเวลา',
+  system_alert: 'แจ้งเตือนระบบ',
 };
 
 export interface NotifyOptions {
@@ -31,6 +33,7 @@ export class NotificationsService {
     @InjectRepository(NotificationLog) private readonly logRepository: Repository<NotificationLog>,
     @InjectRepository(NotificationChannel) private readonly channelRepository: Repository<NotificationChannel>,
     @InjectRepository(NotificationSettings) private readonly settingsRepository: Repository<NotificationSettings>,
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
     private readonly telegram: TelegramService,
     private readonly line: LineService,
     private readonly email: EmailService,
@@ -56,6 +59,36 @@ export class NotificationsService {
       await this.notifyLegacyChat(eventType, message);
     } catch (err) {
       this.logger.error(`notify(${eventType}) ล้มเหลว: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * แจ้งเตือนระบบ (จาก Alertmanager) ถึงผู้ดูแลระบบทุกคนที่ยังใช้งานได้ ผ่านทุกช่องทางที่เปิดไว้
+   * ไม่ขึ้นกับตัวเลือก "เหตุการณ์ที่ต้องการ" ของผู้ใช้; ช่วงเวลาเงียบมีผลเฉพาะระดับที่ไม่ใช่ critical
+   */
+  async notifySystem(message: string, critical: boolean): Promise<void> {
+    try {
+      const admins = await this.userRepository.find({ where: { role: UserRole.ADMIN, status: 'active' } });
+      for (const admin of admins) {
+        await this.logRepository.save(
+          this.logRepository.create({
+            user_id: admin.id,
+            channel: 'app',
+            event_type: 'system_alert',
+            message,
+            status: NotificationStatus.SENT,
+          }),
+        );
+        const settings = await this.settingsOf(admin.id);
+        if (!critical && this.inQuietHours(settings)) continue;
+        const channels = await this.channelRepository.find({ where: { user_id: admin.id, enabled: true } });
+        for (const ch of channels) {
+          await this.sendAndLog(admin.id, ch.type, 'system_alert', message, () => this.dispatch(ch, 'system_alert', message));
+        }
+      }
+      await this.notifyLegacyChat('system_alert', message);
+    } catch (err) {
+      this.logger.error(`notifySystem ล้มเหลว: ${(err as Error).message}`);
     }
   }
 
