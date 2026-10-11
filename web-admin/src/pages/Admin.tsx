@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import type { InviteCreated, UserRole } from '../lib/types';
+import { TYPE_LABEL, type DeviceType, type InviteCreated, type UserDevice, type UserRole, type UserRow } from '../lib/types';
 import { fmtDateTime } from '../lib/format';
 import { ErrorBox, Modal, PageHead, errMsg, useLoad } from '../components/ui';
 
@@ -13,6 +13,7 @@ export function Admin() {
   const [days, setDays] = useState(7);
   const [created, setCreated] = useState<InviteCreated | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [managing, setManaging] = useState<UserRow | null>(null);
 
   if (user?.role !== 'admin') return <ErrorBox message="หน้านี้สำหรับผู้ดูแลระบบเท่านั้น" />;
 
@@ -47,7 +48,7 @@ export function Admin() {
         <h2>ผู้ใช้ ({users.data?.length ?? 0})</h2>
         <div className="table-wrap flat">
           <table>
-            <thead><tr><th>อีเมล</th><th>สิทธิ์ระบบ</th><th>สมัครเมื่อ</th></tr></thead>
+            <thead><tr><th>อีเมล</th><th>สิทธิ์ระบบ</th><th>สถานะ</th><th>อุปกรณ์</th><th>ไซต์</th><th>เข้าใช้ล่าสุด</th><th>สมัครเมื่อ</th><th /></tr></thead>
             <tbody>
               {(users.data ?? []).map((u) => (
                 <tr key={u.id}>
@@ -58,7 +59,12 @@ export function Admin() {
                       <option value="admin">ผู้ดูแลระบบ</option>
                     </select>
                   </td>
+                  <td>{u.status === 'suspended' ? <span className="tag skipped">ระงับ</span> : <span className="tag sent">ใช้งาน</span>}</td>
+                  <td className="mono">{u.device_count}{u.role === 'admin' ? '' : ` / ${u.device_quota ?? 'ค่าเริ่มต้น'}`}</td>
+                  <td className="mono">{u.site_count}{u.role === 'admin' ? '' : ` / ${u.site_quota ?? 'ค่าเริ่มต้น'}`}</td>
+                  <td className="muted">{u.last_login_at ? fmtDateTime(u.last_login_at) : '—'}</td>
                   <td className="muted">{fmtDateTime(u.created_at)}</td>
+                  <td className="right"><button className="btn sm" onClick={() => setManaging(u)}>จัดการ</button></td>
                 </tr>
               ))}
             </tbody>
@@ -95,6 +101,15 @@ export function Admin() {
         </div>
       </section>
 
+      {managing && (
+        <UserManageModal
+          target={managing}
+          isSelf={managing.id === user.id}
+          onClose={() => setManaging(null)}
+          onChanged={async () => { await users.reload(); }}
+        />
+      )}
+
       {created && (
         <Modal title="รหัสเชิญ (แสดงครั้งเดียว)" onClose={() => setCreated(null)}>
           <div className="invite-code mono">{created.code}</div>
@@ -108,5 +123,132 @@ export function Admin() {
         </Modal>
       )}
     </>
+  );
+}
+
+function UserManageModal({ target, isSelf, onClose, onChanged }: {
+  target: UserRow; isSelf: boolean; onClose: () => void; onChanged: () => Promise<void>;
+}) {
+  const devices = useLoad(() => api.userDevices(target.id), [target.id]);
+  const [devQuota, setDevQuota] = useState(target.device_quota == null ? '' : String(target.device_quota));
+  const [siteQuota, setSiteQuota] = useState(target.site_quota == null ? '' : String(target.site_quota));
+  const [status, setStatus] = useState(target.status);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [name, setName] = useState('');
+  const [type, setType] = useState<DeviceType>('sensor');
+  const [moveTo, setMoveTo] = useState<Record<string, string>>({});
+
+  const num = (v: string) => (v.trim() === '' ? null : Math.max(0, Math.floor(Number(v)) || 0));
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.updateUser(target.id, { device_quota: num(devQuota), site_quota: num(siteQuota), status });
+      await onChanged();
+      onClose();
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addDevice(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api.createDevice({ name: name.trim(), type, owner_id: target.id });
+      setName('');
+      await devices.reload();
+      await onChanged();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  async function transfer(d: UserDevice) {
+    const email = (moveTo[d.id] ?? '').trim();
+    if (!email || !window.confirm(`โอน "${d.name}" ให้ ${email}?`)) return;
+    setError(null);
+    try {
+      await api.transferDevice(d.id, email);
+      await devices.reload();
+      await onChanged();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  async function remove(d: UserDevice) {
+    if (!window.confirm(`ลบ "${d.name}" พร้อมข้อมูลทั้งหมด? ย้อนกลับไม่ได้`)) return;
+    setError(null);
+    try {
+      await api.deleteDevice(d.id);
+      await devices.reload();
+      await onChanged();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  return (
+    <Modal title={`จัดการผู้ใช้: ${target.email}`} onClose={onClose} wide>
+      <ErrorBox message={error ?? devices.error} />
+      {target.role !== 'admin' && (
+        <div className="form row">
+          <label className="field"><span>โควตาอุปกรณ์ (ว่าง = ค่าเริ่มต้น)</span><input type="number" min={0} value={devQuota} onChange={(e) => setDevQuota(e.target.value)} /></label>
+          <label className="field"><span>โควตาไซต์ (ว่าง = ค่าเริ่มต้น)</span><input type="number" min={0} value={siteQuota} onChange={(e) => setSiteQuota(e.target.value)} /></label>
+          <label className="field">
+            <span>สถานะบัญชี</span>
+            <select value={status} disabled={isSelf} onChange={(e) => setStatus(e.target.value as 'active' | 'suspended')}>
+              <option value="active">ใช้งานได้</option>
+              <option value="suspended">ระงับ (เข้าสู่ระบบไม่ได้)</option>
+            </select>
+          </label>
+        </div>
+      )}
+
+      <div className="subsec">
+        <h3>อุปกรณ์ของผู้ใช้นี้ ({devices.data?.length ?? 0})</h3>
+        <div className="table-wrap flat">
+          <table>
+            <thead><tr><th>ชื่อ</th><th>ประเภท</th><th>สถานะ</th><th>โอนให้ (อีเมล)</th><th /></tr></thead>
+            <tbody>
+              {(devices.data ?? []).map((d) => (
+                <tr key={d.id}>
+                  <td>{d.name}</td>
+                  <td className="muted">{TYPE_LABEL[d.type]}</td>
+                  <td className="muted">{d.status}</td>
+                  <td>
+                    <span className="row-btns">
+                      <input type="email" value={moveTo[d.id] ?? ''} onChange={(e) => setMoveTo({ ...moveTo, [d.id]: e.target.value })} placeholder="อีเมลเจ้าของใหม่" />
+                      <button className="btn sm" disabled={!(moveTo[d.id] ?? '').trim()} onClick={() => void transfer(d)}>โอน</button>
+                    </span>
+                  </td>
+                  <td className="right"><button className="btn danger sm" onClick={() => void remove(d)}>ลบ</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <form className="form row" onSubmit={addDevice}>
+          <label className="field"><span>เพิ่มอุปกรณ์แทนผู้ใช้</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="ชื่ออุปกรณ์" maxLength={128} required /></label>
+          <label className="field">
+            <span>ประเภท</span>
+            <select value={type} onChange={(e) => setType(e.target.value as DeviceType)}>
+              {(Object.keys(TYPE_LABEL) as DeviceType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
+            </select>
+          </label>
+          <button className="btn" disabled={!name.trim()}>เพิ่ม</button>
+        </form>
+      </div>
+
+      <div className="modal-actions">
+        <button className="btn" onClick={onClose}>ปิด</button>
+        {target.role !== 'admin' && <button className="btn primary" disabled={busy} onClick={() => void save()}>บันทึกโควตา/สถานะ</button>}
+      </div>
+    </Modal>
   );
 }

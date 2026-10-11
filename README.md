@@ -631,3 +631,6 @@ node scripts/simulate-sensor.js <SENSOR_ID>
 - [ ] อุปกรณ์ offline แล้วเห็น event `device:status` และถ้าตั้ง Telegram ไว้ต้องได้ข้อความจริง
 - [ ] `GET /notifications` แสดงประวัติการแจ้งเตือนครบ ไม่ว่าจะ sent/failed/skipped
 - [ ] Rule ทำงานแล้วเห็น event `rule:triggered` บนหน้าเว็บด้วย
+
+## สมัครใช้งานเอง / การแชร์ / โควตา
+ดู [docs/SELF-SERVICE.md](docs/SELF-SERVICE.md)

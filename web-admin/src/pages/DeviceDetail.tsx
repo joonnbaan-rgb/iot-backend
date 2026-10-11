@@ -25,8 +25,8 @@ export function DeviceDetail() {
   if (!d) return <div className="muted">กำลังโหลด…</div>;
 
   const level = d.access_level ?? 'view';
-  const canControl = level === 'admin' || level === 'owner' || level === 'control';
-  const canManage = level === 'admin' || level === 'owner';
+  const canControl = level === 'admin' || level === 'owner' || level === 'manager' || level === 'control';
+  const canManage = level === 'admin' || level === 'owner' || level === 'manager';
 
   return (
     <>
@@ -206,6 +206,17 @@ function ManagePanel({ device, onChanged }: { device: Device; onChanged: () => P
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creds, setCreds] = useState<MqttCredentials | null>(null);
+  const [newOwner, setNewOwner] = useState('');
+
+  async function transfer() {
+    if (!window.confirm(`โอน "${device.name}" ให้ ${newOwner.trim()}? คุณอาจเข้าถึงอุปกรณ์นี้ไม่ได้อีก`)) return;
+    try {
+      await api.transferDevice(device.id, newOwner.trim());
+      nav('/devices');
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -285,6 +296,17 @@ function ManagePanel({ device, onChanged }: { device: Device; onChanged: () => P
           <div className="row-btns">
             <button className="btn" onClick={() => void issue()}>{device.mqtt_credentials_at ? 'ออกรหัสใหม่' : 'ออกรหัสเชื่อมต่อ'}</button>
             {device.mqtt_credentials_at && <button className="btn danger" onClick={() => void revoke()}>เพิกถอน</button>}
+          </div>
+        </div>
+      )}
+
+      {(device.access_level === 'owner' || device.access_level === 'admin') && (
+        <div className="subsec">
+          <h3>โอนความเป็นเจ้าของ</h3>
+          <p className="muted small">ย้ายอุปกรณ์ไปเป็นของบัญชีอื่น (การแชร์และกลุ่มเดิมของอุปกรณ์นี้จะถูกล้าง)</p>
+          <div className="row-btns">
+            <input type="email" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} placeholder="อีเมลเจ้าของใหม่" />
+            <button className="btn" disabled={!newOwner.trim()} onClick={() => void transfer()}>โอน</button>
           </div>
         </div>
       )}

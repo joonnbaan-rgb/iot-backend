@@ -1,5 +1,5 @@
 import type {
-  AuthTokens, Device, DeviceCommand, DeviceType, Invite, InviteCreated, Me, MqttCredentials, NotificationLog,
+  AuthTokens, Device, UserDevice, DeviceCommand, DeviceType, Invite, InviteCreated, Me, MqttCredentials, NotificationLog,
   SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
 } from './types';
 
@@ -105,10 +105,11 @@ export const api = {
 
   devices: () => get<Device[]>('/devices'),
   device: (id: string) => get<Device>(`/devices/${id}`),
-  createDevice: (b: { name: string; type: DeviceType; location?: string; rtsp_url?: string; site_id?: string }) =>
+  createDevice: (b: { name: string; type: DeviceType; location?: string; rtsp_url?: string; site_id?: string; owner_id?: string }) =>
     post<Device>('/devices', b),
   updateDevice: (id: string, b: { name?: string; location?: string; site_id?: string }) => patch<Device>(`/devices/${id}`, b),
   deleteDevice: (id: string) => del(`/devices/${id}`),
+  transferDevice: (id: string, email: string) => post<{ id: string; owner_email: string }>(`/devices/${id}/transfer`, { email }),
   telemetry: (id: string, q: { limit?: number; from?: string }) => {
     const p = new URLSearchParams();
     if (q.limit) p.set('limit', String(q.limit));
@@ -135,6 +136,9 @@ export const api = {
   notifications: (limit = 100) => get<NotificationLog[]>(`/notifications?limit=${limit}`),
 
   users: () => get<UserRow[]>('/users'),
+  updateUser: (id: string, b: { device_quota?: number | null; site_quota?: number | null; status?: 'active' | 'suspended' }) =>
+    patch<UserRow>(`/users/${id}`, b),
+  userDevices: (id: string) => get<UserDevice[]>(`/users/${id}/devices`),
   setUserRole: (id: string, role: UserRole) => patch<UserRow>(`/users/${id}/role`, { role }),
   invites: () => get<Invite[]>('/invites'),
   createInvite: (b: { email?: string; days?: number }) => post<InviteCreated>('/invites', b),

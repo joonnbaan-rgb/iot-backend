@@ -1,12 +1,19 @@
 // Type ตรงกับ API ของ backend (ดู mobile-app/src/types/api.ts)
 export type UserRole = 'admin' | 'user';
 export interface Me { id: string; email: string; role: UserRole }
-export interface UserRow { id: string; email: string; role: UserRole; created_at: string }
+export interface UserRow {
+  id: string; email: string; role: UserRole; created_at: string;
+  status: 'active' | 'suspended';
+  device_quota: number | null; site_quota: number | null;
+  last_login_at: string | null;
+  device_count: number; site_count: number; shared_count: number;
+}
+export interface UserDevice { id: string; name: string; type: DeviceType; status: DeviceStatus; location: string | null; created_at: string; last_seen_at: string | null }
 export interface AuthTokens { access_token: string; refresh_token: string; expires_in: string }
 
 export type DeviceType = 'sensor' | 'camera' | 'actuator';
 export type DeviceStatus = 'online' | 'offline';
-export type AccessLevel = 'admin' | 'owner' | 'control' | 'view';
+export type AccessLevel = 'admin' | 'owner' | 'manager' | 'control' | 'view';
 
 export interface Device {
   id: string;

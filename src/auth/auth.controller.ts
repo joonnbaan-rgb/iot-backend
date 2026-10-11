@@ -12,6 +12,8 @@ import { CurrentUser, CurrentUserPayload } from './decorators/current-user.decor
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // กันสมัครรัวๆ จาก IP เดียว (โหมด open): 10 ครั้ง/10 นาที
+  @Throttle({ default: { limit: 10, ttl: 600000 } })
   @Public()
   @Post('register')
   register(@Body() dto: RegisterDto) {
