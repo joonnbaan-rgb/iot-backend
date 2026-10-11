@@ -46,11 +46,15 @@ export function NotificationSettingsScreen() {
   // ระหว่างรอผูก Telegram/LINE: ถามสถานะซ้ำ ถ้ามีช่องทางใหม่ปรากฏ = ผูกสำเร็จ
   useEffect(() => {
     if (!link) return;
+    // สำเร็จ = มีช่องทางประเภทนี้เพิ่มขึ้น หรือช่องเดิมถูกผูกซ้ำ (linked_at ใหม่กว่าก่อนขอรหัส)
+    const latest = (v: NotificationSettingsView) =>
+      Math.max(0, ...v.channels.filter((c) => c.type === link.type).map((c) => (c.linked_at ? Date.parse(c.linked_at) : 0)));
     const before = s?.channels.filter((c) => c.type === link.type).length ?? 0;
+    const beforeLatest = s ? latest(s) : 0;
     const t = setInterval(async () => {
       try {
         const v = await notificationsApi.settings();
-        if (v.channels.filter((c) => c.type === link.type).length > before) {
+        if (v.channels.filter((c) => c.type === link.type).length > before || latest(v) > beforeLatest) {
           apply(v);
           setLink(null);
           Alert.alert('สำเร็จ', `เชื่อมต่อ ${TYPE_LABEL[link.type]} เรียบร้อยแล้ว`);

@@ -74,6 +74,7 @@ export class NotificationsController {
         type: c.type,
         label: c.label ?? c.target,
         enabled: c.enabled,
+        linked_at: c.created_at,
       })),
     };
   }

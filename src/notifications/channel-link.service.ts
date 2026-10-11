@@ -61,7 +61,7 @@ export class ChannelLinkService implements OnModuleDestroy {
       .createQueryBuilder()
       .insert()
       .values({ user_id: userId, type, target, label: label ?? null, enabled: true })
-      .onConflict(`("user_id","type","target") DO UPDATE SET enabled = true, label = EXCLUDED.label`)
+      .onConflict(`("user_id","type","target") DO UPDATE SET enabled = true, label = EXCLUDED.label, created_at = now()`)
       .execute();
   }
 

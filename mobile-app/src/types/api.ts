@@ -154,6 +154,8 @@ export interface NotificationChannelView {
   type: 'telegram' | 'line' | 'email';
   label: string;
   enabled: boolean;
+  /** เวลาที่ผูก (อัปเดตใหม่ทุกครั้งที่ผูกซ้ำช่องเดิม) */
+  linked_at?: string;
 }
 
 export interface NotificationSettingsView {
