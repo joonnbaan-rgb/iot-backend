@@ -62,3 +62,5 @@ export const TYPE_LABEL: Record<DeviceType, string> = { sensor: 'เซนเซ
 export const EVENT_LABEL: Record<string, string> = {
   device_offline: 'อุปกรณ์ออฟไลน์', rule_triggered: 'กฎทำงาน', command_timeout: 'คำสั่งหมดเวลา',
 };
+
+export interface DeleteUserResult { deleted_user: string; devices_deleted: number; devices_transferred: number; sites_reassigned: number }

@@ -34,7 +34,10 @@ RESEND_API_KEY=...            # ต้องมี (พร้อม EMAIL_FROM) 
 - `POST /shares` permission = `view|control|manage`; ถ้าอีเมลผู้รับ **ยังไม่สมัคร** จะเก็บเป็นคำเชิญ (`GET /shares/pending`, `DELETE /shares/pending/:id`, สูงสุด 50) แล้วมีผลอัตโนมัติเมื่อสมัครด้วยอีเมลนั้น
 - admin: `GET /users` (พร้อมจำนวนอุปกรณ์/ไซต์/โควตา/เข้าใช้ล่าสุด), `PATCH /users/:id {device_quota, site_quota, status}`, `GET /users/:id/devices`
 
+- admin ลบผู้ใช้: `DELETE /users/:id?devices=delete|transfer` (Web Admin: จัดการ → โซนอันตราย พิมพ์อีเมลยืนยัน) — ถ้าผู้ใช้มีอุปกรณ์ต้องเลือก `delete` (ลบพร้อมข้อมูลและสตรีม) หรือ `transfer` (โอนให้ admin ผู้สั่งลบ); ไซต์ที่เขาสร้างและยังมีคนอื่น/อุปกรณ์จะโอนให้ admin; rule ของเขาถูกลบ; ลบตัวเองไม่ได้
+
 ## ข้อจำกัดที่ควรรู้
+- ลบผู้ใช้: access token ที่ออกไปแล้วยังใช้ได้จนหมดอายุ (≤15 นาที) แม้ข้อมูลหายแล้ว
 - ระงับบัญชี: ตัด refresh token ทันที แต่ access token ที่ออกไปแล้วยังใช้ได้จนหมดอายุ (`JWT_EXPIRES_IN`, ค่าเริ่มต้น 15 นาที) และ socket ที่เชื่อมอยู่จะหลุดเมื่อเชื่อมต่อใหม่
 - ผู้จัดการร่วม (`manage`) ลบอุปกรณ์/ออกรหัส MQTT ได้ ให้สิทธิ์นี้เฉพาะคนที่ไว้ใจ
 - ถ้าตั้ง `REGISTRATION_MODE=invite` ผู้รับแชร์ที่ยังไม่สมัครต้องมีรหัสเชิญด้วย

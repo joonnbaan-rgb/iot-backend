@@ -1,5 +1,5 @@
 import type {
-  AuthTokens, Device, UserDevice, DeviceCommand, DeviceType, Invite, InviteCreated, Me, MqttCredentials, NotificationLog,
+  AuthTokens, Device, UserDevice, DeleteUserResult, DeviceCommand, DeviceType, Invite, InviteCreated, Me, MqttCredentials, NotificationLog,
   SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
 } from './types';
 
@@ -93,7 +93,7 @@ async function request<T>(method: string, path: string, body?: unknown, retry = 
 const get = <T>(p: string) => request<T>('GET', p);
 const post = <T>(p: string, b?: unknown) => request<T>('POST', p, b ?? {});
 const patch = <T>(p: string, b: unknown) => request<T>('PATCH', p, b);
-const del = (p: string) => request<void>('DELETE', p);
+const del = <T = void>(p: string) => request<T>('DELETE', p);
 
 export const api = {
   login: (email: string, password: string) => post<AuthTokens>('/auth/login', { email, password }),
@@ -138,6 +138,8 @@ export const api = {
   users: () => get<UserRow[]>('/users'),
   updateUser: (id: string, b: { device_quota?: number | null; site_quota?: number | null; status?: 'active' | 'suspended' }) =>
     patch<UserRow>(`/users/${id}`, b),
+  deleteUser: (id: string, devices?: 'delete' | 'transfer') =>
+    del<DeleteUserResult>(`/users/${id}${devices ? `?devices=${devices}` : ''}`),
   userDevices: (id: string) => get<UserDevice[]>(`/users/${id}/devices`),
   setUserRole: (id: string, role: UserRole) => patch<UserRow>(`/users/${id}/role`, { role }),
   invites: () => get<Invite[]>('/invites'),

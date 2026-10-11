@@ -138,6 +138,24 @@ function UserManageModal({ target, isSelf, onClose, onChanged }: {
   const [name, setName] = useState('');
   const [type, setType] = useState<DeviceType>('sensor');
   const [moveTo, setMoveTo] = useState<Record<string, string>>({});
+  const [delMode, setDelMode] = useState<'delete' | 'transfer'>('transfer');
+  const [confirmEmail, setConfirmEmail] = useState('');
+
+  async function removeUser() {
+    setBusy(true);
+    setError(null);
+    try {
+      const hasDevices = (devices.data?.length ?? 0) > 0;
+      const r = await api.deleteUser(target.id, hasDevices ? delMode : undefined);
+      window.alert(`ลบ ${r.deleted_user} แล้ว (อุปกรณ์ลบ ${r.devices_deleted}, โอน ${r.devices_transferred}, ไซต์ที่โอนต่อ ${r.sites_reassigned})`);
+      await onChanged();
+      onClose();
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const num = (v: string) => (v.trim() === '' ? null : Math.max(0, Math.floor(Number(v)) || 0));
 
@@ -244,6 +262,31 @@ function UserManageModal({ target, isSelf, onClose, onChanged }: {
           <button className="btn" disabled={!name.trim()}>เพิ่ม</button>
         </form>
       </div>
+
+      {!isSelf && (
+        <div className="subsec">
+          <h3>โซนอันตราย: ลบผู้ใช้</h3>
+          <p className="muted small">
+            ลบบัญชีนี้ถาวร (การแชร์ กลุ่ม และช่องทางแจ้งเตือนของเขาจะหายไป) ผู้ใช้ที่ล็อกอินอยู่จะหลุดภายใน 15 นาที
+          </p>
+          {(devices.data?.length ?? 0) > 0 && (
+            <label className="field">
+              <span>อุปกรณ์ของผู้ใช้ ({devices.data?.length} เครื่อง)</span>
+              <select value={delMode} onChange={(e) => setDelMode(e.target.value as 'delete' | 'transfer')}>
+                <option value="transfer">โอนให้ฉัน (เก็บข้อมูลไว้)</option>
+                <option value="delete">ลบทิ้งทั้งหมดพร้อมข้อมูล (ย้อนกลับไม่ได้)</option>
+              </select>
+            </label>
+          )}
+          <label className="field">
+            <span>พิมพ์อีเมล {target.email} เพื่อยืนยัน</span>
+            <input value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} placeholder={target.email} />
+          </label>
+          <button className="btn danger" disabled={busy || confirmEmail.trim().toLowerCase() !== target.email.toLowerCase()} onClick={() => void removeUser()}>
+            ลบผู้ใช้นี้
+          </button>
+        </div>
+      )}
 
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>ปิด</button>
