@@ -103,6 +103,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       MQTT_URL: mqtt://emqx:1883
+      # ต่อออกอินเทอร์เน็ต (Telegram/LINE/Resend) ทาง IPv4 ก่อน: Docker บน Windows/เครือข่ายบางแห่งต่อ IPv6 ไม่ติด ทำให้ fetch ติด ETIMEDOUT
+      NODE_OPTIONS: --dns-result-order=ipv4first --no-network-family-autoselection
       MEDIAMTX_API_URL: http://mediamtx:9997
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
