@@ -25,6 +25,8 @@ export function EditDeviceScreen({ route, navigation }: Props) {
   const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [newOwner, setNewOwner] = useState('');
+  const [transferring, setTransferring] = useState(false);
 
   useEffect(() => {
     devicesApi
@@ -42,6 +44,8 @@ export function EditDeviceScreen({ route, navigation }: Props) {
 
   const isManager =
     device?.access_level === 'owner' || device?.access_level === 'admin' || device?.access_level === 'manager';
+  // โอนได้เฉพาะเจ้าของ/admin (ผู้จัดการร่วมโอนไม่ได้)
+  const canTransfer = device?.access_level === 'owner' || device?.access_level === 'admin';
   const isMqttDevice = device?.type !== 'camera';
 
   function showCredentials(c: MqttCredentials) {
@@ -86,6 +90,38 @@ export function EditDeviceScreen({ route, navigation }: Props) {
         },
       },
     ]);
+  }
+
+  function confirmTransfer() {
+    const email = newOwner.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      Alert.alert('อีเมลไม่ถูกต้อง', 'กรอกอีเมลของบัญชีที่จะเป็นเจ้าของใหม่');
+      return;
+    }
+    Alert.alert(
+      'โอนความเป็นเจ้าของ',
+      `โอน "${device?.name}" ให้ ${email}?\n\nการแชร์และกลุ่มเดิมของอุปกรณ์นี้จะถูกล้าง และคุณจะไม่เห็นอุปกรณ์นี้อีกถ้าไม่ได้เป็นผู้ดูแลระบบ`,
+      [
+        { text: 'ยกเลิก', style: 'cancel' },
+        {
+          text: 'โอน',
+          style: 'destructive',
+          onPress: async () => {
+            setTransferring(true);
+            try {
+              const r = await devicesApi.transfer(deviceId, email);
+              Alert.alert('โอนแล้ว', `เจ้าของใหม่: ${r.owner_email}`, [
+                { text: 'ตกลง', onPress: () => navigation.popToTop() },
+              ]);
+            } catch (err) {
+              Alert.alert('โอนไม่สำเร็จ', extractErrorMessage(err));
+            } finally {
+              setTransferring(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function handleSave() {
@@ -137,6 +173,25 @@ export function EditDeviceScreen({ route, navigation }: Props) {
             {!!device.mqtt_credentials_at && (
               <Button title="เพิกถอนรหัส" variant="danger" onPress={confirmRevoke} style={styles.submit} />
             )}
+          </View>
+        )}
+
+        {canTransfer && (
+          <View style={styles.secBox}>
+            <Text style={styles.secTitle}>โอนความเป็นเจ้าของ</Text>
+            <Text style={styles.secText}>
+              ย้ายอุปกรณ์นี้ไปเป็นของบัญชีอื่น (ต้องเป็นบัญชีที่สมัครแล้ว และยังไม่เกินโควตาอุปกรณ์)
+            </Text>
+            <TextField
+              label="อีเมลเจ้าของใหม่"
+              value={newOwner}
+              onChangeText={setNewOwner}
+              placeholder="friend@example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+            />
+            <Button title="โอนอุปกรณ์" variant="danger" onPress={confirmTransfer} loading={transferring} />
           </View>
         )}
       </ScrollView>
