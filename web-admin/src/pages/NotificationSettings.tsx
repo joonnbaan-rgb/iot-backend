@@ -180,14 +180,18 @@ export function NotificationSettings() {
         <div className="row-btns">
           <button className="btn" disabled={busy || !s.providers.telegram} onClick={() => void startLink('telegram')}>+ Telegram</button>
           <button className="btn" disabled={busy || !s.providers.line} onClick={() => void startLink('line')}>+ LINE</button>
-          <button
-            className="btn"
-            disabled={busy || !s.providers.email || hasEmail}
-            title={hasEmail ? 'เพิ่มอีเมลไว้แล้ว' : `ส่งไปที่ ${s.account_email ?? 'อีเมลของบัญชี'}`}
-            onClick={() => void run(async () => settings.setData(await api.addEmailChannel()), 'เพิ่มช่องทางอีเมลแล้ว')}
-          >
-            + อีเมล
-          </button>
+          {hasEmail ? (
+            <span className="muted">✓ เพิ่มช่องทางอีเมลแล้ว ({s.channels.find((c) => c.type === 'email')?.label})</span>
+          ) : (
+            <button
+              className="btn"
+              disabled={busy || !s.providers.email}
+              title={`ส่งไปที่ ${s.account_email ?? 'อีเมลของบัญชี'}`}
+              onClick={() => void run(async () => settings.setData(await api.addEmailChannel()), 'เพิ่มช่องทางอีเมลแล้ว')}
+            >
+              + อีเมล
+            </button>
+          )}
         </div>
         {(!s.providers.telegram || !s.providers.line || !s.providers.email) && (
           <p className="muted small">
