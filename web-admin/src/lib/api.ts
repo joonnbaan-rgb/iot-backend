@@ -1,5 +1,6 @@
 import type {
-  AuthTokens, Device, UserDevice, DeleteUserResult, DeviceCommand, DeviceType, Invite, InviteCreated, Me, MqttCredentials, NotificationLog,
+  AuthTokens, Device, UserDevice, DeleteUserResult, DeviceCommand, DeviceType, Invite, InviteCreated, LinkCode, Me, MqttCredentials, NotificationLog,
+  NotificationSettingsView, NotificationTestResult,
   SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
 } from './types';
 
@@ -92,6 +93,7 @@ async function request<T>(method: string, path: string, body?: unknown, retry = 
 
 const get = <T>(p: string) => request<T>('GET', p);
 const post = <T>(p: string, b?: unknown) => request<T>('POST', p, b ?? {});
+const put = <T>(p: string, b: unknown) => request<T>('PUT', p, b);
 const patch = <T>(p: string, b: unknown) => request<T>('PATCH', p, b);
 const del = <T = void>(p: string) => request<T>('DELETE', p);
 
@@ -134,6 +136,14 @@ export const api = {
   removeMember: (id: string, uid: string) => del(`/sites/${id}/members/${uid}`),
 
   notifications: (limit = 100) => get<NotificationLog[]>(`/notifications?limit=${limit}`),
+  notificationSettings: () => get<NotificationSettingsView>('/notifications/settings'),
+  saveNotificationSettings: (b: { events?: string[]; quiet_start?: number | null; quiet_end?: number | null }) =>
+    put<NotificationSettingsView>('/notifications/settings', b),
+  addEmailChannel: () => post<NotificationSettingsView>('/notifications/channels/email'),
+  linkCode: (type: 'telegram' | 'line') => post<LinkCode>(`/notifications/channels/${type}/link-code`),
+  setChannelEnabled: (id: string, enabled: boolean) => patch<unknown>(`/notifications/channels/${id}`, { enabled }),
+  removeChannel: (id: string) => del(`/notifications/channels/${id}`),
+  testNotification: () => post<NotificationTestResult[]>('/notifications/test'),
 
   users: () => get<UserRow[]>('/users'),
   updateUser: (id: string, b: { device_quota?: number | null; site_quota?: number | null; status?: 'active' | 'suspended' }) =>

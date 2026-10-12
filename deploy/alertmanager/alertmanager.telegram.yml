@@ -1,0 +1,35 @@
+# เหมือน alertmanager.yml แต่ BackendDown ส่งตรงเข้า Telegram (ไม่ผ่าน backend เพราะ backend ล่มอยู่)
+# entrypoint.sh แทน __CHAT_ID__ จาก ALERT_TELEGRAM_CHAT_ID และเขียน token ที่ /tmp/tg-token
+route:
+  receiver: backend
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers:
+        - alertname="BackendDown"
+      receiver: telegram-direct
+      group_wait: 10s
+      repeat_interval: 1h
+
+receivers:
+  - name: backend
+    webhook_configs:
+      - url: http://backend:3000/internal/alerts
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /tmp/am-token
+
+  - name: telegram-direct
+    telegram_configs:
+      - bot_token_file: /tmp/tg-token
+        chat_id: __CHAT_ID__
+        send_resolved: true
+        parse_mode: ""
+        message: |-
+          {{ if eq .Status "resolved" }}✅ แก้ไขแล้ว{{ else }}🔴 วิกฤต{{ end }}: ระบบ IoT
+          {{ range .Alerts }}{{ .Labels.alertname }}{{ if .Annotations.summary }} — {{ .Annotations.summary }}{{ end }}
+          {{ end }}

@@ -50,6 +50,8 @@ RTSP_PUBLISH_PASS=$(rnd 16)
 TELEGRAM_BOT_TOKEN=
 # (ไม่บังคับ) chat กลางที่รับทุกเหตุการณ์ของระบบ
 TELEGRAM_CHAT_ID=
+# (ไม่บังคับ) chat id ที่ Alertmanager ส่ง BackendDown เข้าตรง ๆ แม้ backend ล่ม (ใช้ TELEGRAM_BOT_TOKEN ข้างบน) ดู docs/ALERTING.md
+ALERT_TELEGRAM_CHAT_ID=
 # LINE Messaging API (LINE Notify ปิดบริการแล้ว) สร้างช่องที่ https://developers.line.biz
 LINE_CHANNEL_ACCESS_TOKEN=
 LINE_CHANNEL_SECRET=

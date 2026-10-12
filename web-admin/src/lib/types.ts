@@ -60,7 +60,30 @@ export const KIND_LABEL: Record<SiteKind, string> = { home: 'Smart Home', farm: 
 export const ROLE_LABEL: Record<SiteRole, string> = { admin: 'ผู้ดูแล', operator: 'ผู้ปฏิบัติงาน', viewer: 'ผู้ชม' };
 export const TYPE_LABEL: Record<DeviceType, string> = { sensor: 'เซนเซอร์', camera: 'กล้อง IP', actuator: 'อุปกรณ์สั่งงาน' };
 export const EVENT_LABEL: Record<string, string> = {
-  device_offline: 'อุปกรณ์ออฟไลน์', rule_triggered: 'กฎทำงาน', command_timeout: 'คำสั่งหมดเวลา',
+  device_offline: 'อุปกรณ์ออฟไลน์', rule_triggered: 'กฎทำงาน', command_timeout: 'คำสั่งหมดเวลา', system_alert: 'แจ้งเตือนระบบ',
 };
+
+export interface NotificationChannel {
+  id: string;
+  type: 'telegram' | 'line' | 'email';
+  label: string;
+  enabled: boolean;
+  /** เวลาที่ผูก (อัปเดตทุกครั้งที่ผูกซ้ำช่องเดิม) */
+  linked_at?: string;
+}
+
+export interface NotificationSettingsView {
+  providers: { telegram: boolean; line: boolean; email: boolean };
+  account_email: string | null;
+  all_events: string[];
+  events: string[];
+  quiet_start: number | null;
+  quiet_end: number | null;
+  channels: NotificationChannel[];
+}
+
+export interface LinkCode { code: string; expires_at: string; open_url: string | null; instructions: string }
+
+export interface NotificationTestResult { channel: string; target: string; ok: boolean; error?: string }
 
 export interface DeleteUserResult { deleted_user: string; devices_deleted: number; devices_transferred: number; sites_reassigned: number }

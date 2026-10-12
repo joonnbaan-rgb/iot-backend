@@ -237,12 +237,12 @@ services:
     restart: unless-stopped
     environment:
       INTERNAL_AUTH_TOKEN: ${INTERNAL_AUTH_TOKEN}
-    entrypoint:
-      - /bin/sh
-      - -c
-      - printf '%s' "$$INTERNAL_AUTH_TOKEN" > /tmp/am-token && exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager
+      # ไม่บังคับ: ตั้งทั้งคู่เพื่อให้ BackendDown ส่งตรงเข้า Telegram แม้ backend ล่ม (ดู docs/ALERTING.md)
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      ALERT_TELEGRAM_CHAT_ID: ${ALERT_TELEGRAM_CHAT_ID:-}
+    entrypoint: ["/bin/sh", "/etc/alertmanager-src/entrypoint.sh"]
     volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager:/etc/alertmanager-src:ro
       - alertmanager_data:/alertmanager
     depends_on:
       - backend
