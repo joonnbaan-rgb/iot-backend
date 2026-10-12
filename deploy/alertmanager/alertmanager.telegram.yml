@@ -11,6 +11,7 @@ route:
         - alertname="BackendDown"
       receiver: telegram-direct
       group_wait: 10s
+      group_interval: 1m   # ข้อความ "แก้ไขแล้ว" มาภายใน ~1 นาทีหลัง backend กลับมา
       repeat_interval: 1h
 
 receivers:
