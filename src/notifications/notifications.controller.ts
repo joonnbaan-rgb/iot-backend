@@ -100,6 +100,9 @@ export class NotificationsController {
     if (!this.email.isConfigured()) throw new BadRequestException('เซิร์ฟเวอร์ยังไม่ได้ตั้งค่าการส่งอีเมล');
     const account = await this.users.findOne({ where: { id: user.sub }, select: { id: true, email: true } });
     if (!account) throw new NotFoundException();
+    if (await this.channels.exist({ where: { user_id: user.sub, type: 'email' } })) {
+      throw new BadRequestException('เพิ่มช่องทางนี้แล้ว หากต้องการผูกใหม่ให้ลบช่องทางเดิมก่อน');
+    }
     await this.links.link(user.sub, 'email', account.email, account.email);
     return this.getSettings(user);
   }
@@ -107,6 +110,10 @@ export class NotificationsController {
   /** ขอรหัสผูก Telegram/LINE: ผู้ใช้ส่งรหัสให้บอต -> ระบบบันทึกช่องทางให้อัตโนมัติ */
   @Post('channels/:type/link-code')
   async linkCode(@CurrentUser() user: CurrentUserPayload, @Param('type') type: string) {
+    if (type === 'telegram' || type === 'line') {
+      const exists = await this.channels.exist({ where: { user_id: user.sub, type } });
+      if (exists) throw new BadRequestException('เพิ่มช่องทางนี้แล้ว หากต้องการผูกใหม่ให้ลบช่องทางเดิมก่อน');
+    }
     if (type === 'telegram') {
       if (!this.telegram.hasBot()) throw new BadRequestException('เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า Telegram bot');
       const { code, expires_at } = this.links.create(user.sub, 'telegram');

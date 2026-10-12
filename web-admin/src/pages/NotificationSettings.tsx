@@ -125,7 +125,8 @@ export function NotificationSettings() {
 
   if (!s) return <>{settings.error ? <ErrorBox message={settings.error} /> : <div className="muted">กำลังโหลด…</div>}</>;
 
-  const hasEmail = s.channels.some((c) => c.type === 'email');
+  // หนึ่งบัญชีต่อหนึ่งประเภทช่องทาง: เพิ่มแล้วจะเพิ่มซ้ำไม่ได้ (ลบก่อนหากต้องการผูกใหม่)
+  const added = (type: NotificationChannel['type']) => s.channels.find((c) => c.type === type);
 
   return (
     <div className="stack">
@@ -178,10 +179,18 @@ export function NotificationSettings() {
         </div>
 
         <div className="row-btns">
-          <button className="btn" disabled={busy || !s.providers.telegram} onClick={() => void startLink('telegram')}>+ Telegram</button>
-          <button className="btn" disabled={busy || !s.providers.line} onClick={() => void startLink('line')}>+ LINE</button>
-          {hasEmail ? (
-            <span className="muted">✓ เพิ่มช่องทางอีเมลแล้ว ({s.channels.find((c) => c.type === 'email')?.label})</span>
+          {added('telegram') ? (
+            <span className="muted">✓ เพิ่ม Telegram แล้ว ({added('telegram')?.label})</span>
+          ) : (
+            <button className="btn" disabled={busy || !s.providers.telegram} onClick={() => void startLink('telegram')}>+ Telegram</button>
+          )}
+          {added('line') ? (
+            <span className="muted">✓ เพิ่ม LINE แล้ว ({added('line')?.label})</span>
+          ) : (
+            <button className="btn" disabled={busy || !s.providers.line} onClick={() => void startLink('line')}>+ LINE</button>
+          )}
+          {added('email') ? (
+            <span className="muted">✓ เพิ่มช่องทางอีเมลแล้ว ({added('email')?.label})</span>
           ) : (
             <button
               className="btn"
