@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +14,7 @@ import { API_BASE_URL } from '@/api/client';
 const ROLE_LABEL_TH: Record<string, string> = { admin: 'ผู้ดูแลระบบ', user: 'ผู้ใช้งานทั่วไป' };
 
 export function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
@@ -63,7 +65,7 @@ export function ProfileScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView style={styles.flex} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.flex} contentContainerStyle={[styles.container, { paddingTop: insets.top + spacing.md }]} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>บัญชีของฉัน</Text>
 
       <View style={styles.card}>

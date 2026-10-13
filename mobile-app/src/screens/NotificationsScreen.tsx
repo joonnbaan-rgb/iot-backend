@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -28,6 +29,7 @@ const CHANNEL_LABEL: Record<string, string> = {
 type Props = NativeStackScreenProps<NotificationsStackParamList, 'NotificationsList'>;
 
 export function NotificationsScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<NotificationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,7 +82,7 @@ export function NotificationsScreen({ navigation }: Props) {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.headRow}>
         <Text style={styles.title}>การแจ้งเตือน</Text>
         <Button title="ตั้งค่า" variant="secondary" onPress={() => navigation.navigate('NotificationSettings')} />

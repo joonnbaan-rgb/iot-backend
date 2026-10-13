@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -16,6 +17,7 @@ import type { DevicesStackParamList } from '@/navigation/types';
 type Props = NativeStackScreenProps<DevicesStackParamList, 'DevicesList'>;
 
 export function DevicesListScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -97,7 +99,7 @@ export function DevicesListScreen({ navigation }: Props) {
   const isEmpty = !loading && !error && devices.length === 0;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.title}>อุปกรณ์ของคุณ</Text>
         <Text style={styles.subtitle}>
