@@ -6,8 +6,20 @@ export interface UserRow {
   status: 'active' | 'suspended';
   device_quota: number | null; site_quota: number | null;
   plan_id: string; plan_expires_at: string | null;
+  plan_overrides: PlanOverrides | null; referral_code: string | null;
   last_login_at: string | null;
   device_count: number; site_count: number; shared_count: number;
+}
+export interface PlanOverrides {
+  camera_quota?: number; recording_enabled?: boolean; notification_types?: string[];
+  retention_days?: number; retention_unlimited?: boolean;
+}
+export interface ReferralSettings {
+  enabled: boolean; inviter_days: number; invitee_days: number; reward_plan: string; max_rewards_per_user: number;
+}
+export interface ReferralRow {
+  id: string; created_at: string; rewarded_at: string | null; inviter_days: number; invitee_days: number;
+  inviter_email: string; invitee_email: string;
 }
 export interface Plan {
   id: string; name: string; sort_order: number;

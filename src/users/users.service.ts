@@ -21,7 +21,7 @@ export class UsersService {
   async findAll() {
     const rows: (User & { device_count: number; site_count: number; shared_count: number })[] =
       await this.userRepository.query(
-        `SELECT u.id, u.email, u.role, u.status, u.device_quota, u.site_quota, u.plan_id, u.plan_expires_at, u.last_login_at, u.created_at,
+        `SELECT u.id, u.email, u.role, u.status, u.device_quota, u.site_quota, u.plan_id, u.plan_expires_at, u.plan_overrides, u.referral_code, u.last_login_at, u.created_at,
                 (SELECT COUNT(*)::int FROM devices d WHERE d.owner_id = u.id) AS device_count,
                 (SELECT COUNT(*)::int FROM sites s WHERE s.created_by = u.id AND NOT s.is_personal) AS site_count,
                 (SELECT COUNT(*)::int FROM device_shares x WHERE x.owner_id = u.id) AS shared_count
@@ -66,6 +66,7 @@ export class UsersService {
       user.plan_id = dto.plan_id;
     }
     if (dto.plan_expires_at !== undefined) user.plan_expires_at = dto.plan_expires_at ? new Date(dto.plan_expires_at) : null;
+    if (dto.plan_overrides !== undefined) user.plan_overrides = this.plans.sanitizeOverrides(dto.plan_overrides) as Record<string, unknown> | null;
     if (dto.status !== undefined) user.status = dto.status;
     await this.userRepository.save(user);
     if (dto.status === 'suspended') {

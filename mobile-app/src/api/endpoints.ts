@@ -19,13 +19,14 @@ import type {
   NotificationSettingsView,
   PendingShare,
   PublicConfig,
+  ReferralInfo,
   Usage,
   User,
 } from '@/types/api';
 
 export const authApi = {
-  register: (email: string, password: string, invite_code?: string) =>
-    apiClient.post<Omit<User, 'password_hash'> & { verification_required: boolean }>('/auth/register', { email, password, invite_code: invite_code || undefined }).then((r) => r.data),
+  register: (email: string, password: string, invite_code?: string, referral_code?: string) =>
+    apiClient.post<Omit<User, 'password_hash'> & { verification_required: boolean }>('/auth/register', { email, password, invite_code: invite_code || undefined, referral_code: referral_code || undefined }).then((r) => r.data),
 
   login: (email: string, password: string) =>
     apiClient.post<AuthTokens>('/auth/login', { email, password }).then((r) => r.data),
@@ -176,4 +177,8 @@ export const sitesApi = {
     apiClient.patch<SiteMember[]>(`/sites/${id}/members/${userId}`, { role }).then((r) => r.data),
   removeMember: (id: string, userId: string) =>
     apiClient.delete(`/sites/${id}/members/${userId}`).then(() => undefined),
+};
+
+export const referralsApi = {
+  me: () => apiClient.get<ReferralInfo>('/referrals/me').then((r) => r.data),
 };

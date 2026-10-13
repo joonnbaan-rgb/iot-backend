@@ -20,6 +20,7 @@ import { LoginDto } from './dto/login.dto';
 import { EmailService } from '../notifications/email.service';
 import { Logger } from '@nestjs/common';
 import { QuotaService } from '../users/quota.service';
+import { ReferralsService } from '../referrals/referrals.service';
 
 export interface AuthTokens {
   access_token: string;
@@ -39,16 +40,18 @@ export class AuthService {
     private readonly invites: InvitesService,
     private readonly email: EmailService,
     private readonly quota: QuotaService,
+    private readonly referrals: ReferralsService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
 
   /** ค่าตั้งค่าสาธารณะที่แอปใช้ปรับหน้าสมัคร/ลืมรหัสผ่าน (ก่อน login) */
-  publicConfig() {
+  async publicConfig() {
     return {
       registration_mode: this.configService.get<string>('REGISTRATION_MODE', 'open'),
       password_reset_available: this.email.isConfigured(),
       email_verification_required: this.verificationRequired(),
+      referral_enabled: (await this.referrals.getSettings()).enabled,
     };
   }
 
@@ -116,6 +119,7 @@ export class AuthService {
     await this.userRepository.update(user.id, { email_verified_at: new Date() });
     // รับแชร์ที่ค้างหลังยืนยันเท่านั้น กันคนสมัครด้วยอีเมลของคนอื่นแล้วรับแชร์ไป
     await this.claimPendingShares(user.id, user.email);
+    await this.referrals.reward(user.id);
   }
 
   /** ปริมาณการใช้งานเทียบโควตาของผู้ใช้ปัจจุบัน */
@@ -189,7 +193,10 @@ export class AuthService {
     const wasUnverified = !user.email_verified_at;
     if (wasUnverified) user.email_verified_at = new Date();
     await this.userRepository.save(user);
-    if (wasUnverified) await this.claimPendingShares(user.id, user.email);
+    if (wasUnverified) {
+      await this.claimPendingShares(user.id, user.email);
+      await this.referrals.reward(user.id);
+    }
     await this.userRepository.query(`UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, [user.id]);
     await this.userRepository.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [user.id]);
   }
@@ -218,9 +225,25 @@ export class AuthService {
     const userCount = await this.userRepository.count();
     const mode = this.configService.get<string>('REGISTRATION_MODE', 'open');
     let inviteId: string | null = null;
+    // รหัสแนะนำจากสมาชิก (ถ้าระบุแล้วไม่ถูกต้อง แจ้งให้แก้ ไม่ปล่อยผ่านเงียบๆ)
+    let inviterId: string | null = null;
+    if (dto.referral_code?.trim()) {
+      if (!(await this.referrals.getSettings()).enabled) throw new BadRequestException('ขณะนี้ปิดโปรโมชันแนะนำสมาชิก');
+      inviterId = (await this.referrals.findInviter(dto.referral_code))?.id ?? null;
+      if (!inviterId) throw new BadRequestException('รหัสแนะนำไม่ถูกต้อง');
+    }
     if (userCount > 0) {
       if (mode === 'closed') throw new ForbiddenException('ระบบปิดรับสมัครสมาชิก');
-      if (mode === 'invite') inviteId = await this.invites.consume(dto.invite_code, dto.email);
+      if (mode === 'invite') {
+        // โหมดเชิญ: สมัครได้ถ้ามีรหัสเชิญ, มีรหัสแนะนำจากสมาชิก, หรือมีคนแชร์อุปกรณ์ให้อีเมลนี้ไว้แล้ว (ผู้รับแชร์ไม่ต้องรอใบเชิญ)
+        const sharedToThem = await this.userRepository.query(
+          `SELECT 1 FROM pending_shares WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+          [dto.email.trim()],
+        );
+        if (dto.invite_code?.trim() || (!inviterId && sharedToThem.length === 0)) {
+          inviteId = await this.invites.consume(dto.invite_code, dto.email);
+        }
+      }
     }
 
     try {
@@ -236,11 +259,13 @@ export class AuthService {
         password_hash,
         role,
         email_verified_at: needVerify ? null : new Date(),
+        referral_code: await this.referrals.generateCode(),
       });
       await this.userRepository.save(user);
       await ensurePersonalSite(this.userRepository.manager, user.id);
       if (!needVerify) await this.claimPendingShares(user.id, user.email);
       if (inviteId) await this.invites.markUsed(inviteId, user.id);
+      if (inviterId) await this.referrals.record(inviterId, user.id, !needVerify);
       if (needVerify) await this.sendVerificationCode(user);
 
       const { password_hash: _omit, ...safeUser } = user;

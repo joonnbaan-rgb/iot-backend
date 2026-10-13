@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
-import { authApi } from '@/api/endpoints';
+import { authApi, referralsApi } from '@/api/endpoints';
 import { extractErrorMessage } from '@/api/client';
-import type { Usage } from '@/types/api';
+import type { ReferralInfo, Usage } from '@/types/api';
 import { colors, radius, spacing } from '@/theme';
 import { API_BASE_URL } from '@/api/client';
 
@@ -18,6 +18,7 @@ export function ProfileScreen() {
   const { user, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [referral, setReferral] = useState<ReferralInfo | null>(null);
   const [showPw, setShowPw] = useState(false);
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -26,6 +27,7 @@ export function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       authApi.usage().then(setUsage).catch(() => undefined);
+      referralsApi.me().then(setReferral).catch(() => undefined);
     }, []),
   );
 
@@ -82,7 +84,15 @@ export function ProfileScreen() {
         <InfoRow label="เชื่อมต่อ backend" value={API_BASE_URL} />
       </View>
 
-      {usage?.plan && (
+      {usage?.viewer && (
+        <View style={styles.infoCard}>
+          <Text style={styles.quotaHint}>
+            บัญชีนี้ยังไม่มีอุปกรณ์ของตัวเอง ใช้งานอุปกรณ์ที่เจ้าของแชร์ให้ได้โดยไม่ต้องสมัครแพ็กเกจ แพ็กเกจจะเริ่มนับเมื่อคุณเพิ่มอุปกรณ์ของตัวเอง
+          </Text>
+        </View>
+      )}
+
+      {usage?.plan && !usage.viewer && (
         <View style={styles.infoCard}>
           <InfoRow label="แพ็กเกจ" value={usage.plan.expired ? `${usage.plan.name} (หมดอายุ ใช้สิทธิ์ Free)` : usage.plan.name} />
           <InfoRow
@@ -116,6 +126,30 @@ export function ProfileScreen() {
             <InfoRow label="กล้อง" value={usage.cameras.limit == null ? `${usage.cameras.used} (ไม่จำกัด)` : `${usage.cameras.used} / ${usage.cameras.limit}`} />
           )}
           <Text style={styles.quotaHint}>ต้องการโควตาเพิ่มหรืออัปเกรดแพ็กเกจ? ติดต่อผู้ดูแลระบบ</Text>
+        </View>
+      )}
+
+      {referral?.code && (
+        <View style={styles.infoCard}>
+          <InfoRow label="รหัสแนะนำของฉัน" value={referral.code} />
+          {referral.promo.enabled ? (
+            <Text style={styles.quotaHint}>
+              ชวนเพื่อนสมัครด้วยรหัสนี้ คุณได้ +{referral.promo.inviter_days} วัน เพื่อนได้ +{referral.promo.invitee_days} วัน
+              {'\n'}แนะนำแล้ว {referral.invited_count} คน (ได้รับรางวัล {referral.rewarded_count} คน รวม {referral.days_earned} วัน)
+            </Text>
+          ) : (
+            <Text style={styles.quotaHint}>ขณะนี้ปิดโปรโมชันแนะนำสมาชิก</Text>
+          )}
+          <Button
+            title="แชร์รหัสแนะนำ"
+            variant="secondary"
+            style={styles.gap}
+            onPress={() =>
+              Share.share({
+                message: `มาใช้ระบบ IoT ด้วยกัน สมัครแล้วใส่รหัสแนะนำ ${referral.code} รับวันใช้งานฟรี ${referral.promo.invitee_days} วัน`,
+              }).catch(() => undefined)
+            }
+          />
         </View>
       )}
 

@@ -25,11 +25,13 @@ export function RegisterScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [referralOn, setReferralOn] = useState(true);
   const [loading, setLoading] = useState(false);
   // ถามเซิร์ฟเวอร์ว่ารับสมัครแบบไหน: open = ไม่ต้องใช้รหัสเชิญ, invite = ต้องมี, closed = ปิดรับ
   const [mode, setMode] = useState<'open' | 'invite' | 'closed'>('open');
   useEffect(() => {
-    authApi.config().then((c) => setMode(c.registration_mode)).catch(() => setMode('invite'));
+    authApi.config().then((c) => { setMode(c.registration_mode); setReferralOn(c.referral_enabled !== false); }).catch(() => setMode('invite'));
   }, []);
 
   async function handleRegister() {
@@ -40,7 +42,7 @@ export function RegisterScreen({ navigation }: Props) {
     }
     setLoading(true);
     try {
-      const r = await register(email.trim(), password, inviteCode.trim() || undefined);
+      const r = await register(email.trim(), password, inviteCode.trim() || undefined, referralCode.trim() || undefined);
       if (r.needsVerification) navigation.navigate('VerifyEmail', { email: email.trim() });
     } catch (err) {
       Alert.alert('สมัครสมาชิกไม่สำเร็จ', extractErrorMessage(err));
@@ -91,8 +93,18 @@ export function RegisterScreen({ navigation }: Props) {
             label="รหัสเชิญ"
             value={inviteCode}
             onChangeText={setInviteCode}
-            placeholder="ขอรหัสจากผู้ดูแลระบบ"
+            placeholder="ไม่มี? ใส่รหัสแนะนำของเพื่อนแทนได้ (หรือสมัครด้วยอีเมลที่มีคนแชร์อุปกรณ์ให้)"
             autoCapitalize="none"
+          />
+        )}
+
+        {referralOn && (
+          <TextField
+            label="รหัสแนะนำจากเพื่อน (ไม่บังคับ)"
+            value={referralCode}
+            onChangeText={setReferralCode}
+            placeholder="ใส่แล้วได้วันใช้งานฟรี"
+            autoCapitalize="characters"
           />
         )}
 

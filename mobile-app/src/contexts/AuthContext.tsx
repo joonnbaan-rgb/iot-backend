@@ -11,7 +11,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   // needsVerification = true: ยังไม่ได้ login ต้องยืนยันอีเมลก่อน
-  register: (email: string, password: string, inviteCode?: string) => Promise<{ needsVerification: boolean }>;
+  register: (email: string, password: string, inviteCode?: string, referralCode?: string) => Promise<{ needsVerification: boolean }>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 }
@@ -62,8 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     connectSocket(tokens.access_token);
   }
 
-  async function register(email: string, password: string, inviteCode?: string) {
-    const created = await authApi.register(email, password, inviteCode);
+  async function register(email: string, password: string, inviteCode?: string, referralCode?: string) {
+    const created = await authApi.register(email, password, inviteCode, referralCode);
     if (created.verification_required) return { needsVerification: true };
     // backend ไม่ auto-login หลังสมัคร -> login ต่อให้เลยเพื่อ UX ที่ลื่นไหล
     await login(email, password);

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { TYPE_LABEL, type DeviceType, type Plan, type InviteCreated, type UserDevice, type UserRole, type UserRow } from '../lib/types';
+import { TYPE_LABEL, type DeviceType, type Plan, type PlanOverrides, type ReferralSettings, type InviteCreated, type UserDevice, type UserRole, type UserRow } from '../lib/types';
 import { fmtDateTime } from '../lib/format';
 import { ErrorBox, Modal, PageHead, errMsg, useLoad } from '../components/ui';
 
@@ -62,7 +62,9 @@ export function Admin() {
                   </td>
                   <td>{u.status === 'suspended' ? <span className="tag skipped">ระงับ</span> : <span className="tag sent">ใช้งาน</span>}</td>
                   <td>
-                    {u.role === 'admin' ? <span className="muted">ไม่จำกัด</span> : (
+                    {u.role === 'admin' ? <span className="muted">ไม่จำกัด</span> : u.device_count === 0 ? (
+                      <span className="muted" title="ไม่มีอุปกรณ์ของตัวเอง ใช้อุปกรณ์ที่ถูกแชร์ได้โดยไม่ต้องมีแพ็กเกจ">สมาชิกทั่วไป (ไม่ต้องมีแพ็กเกจ)</span>
+                    ) : (
                       <>
                         {planName(plans.data, u.plan_id)}
                         {u.plan_expires_at && (
@@ -86,6 +88,7 @@ export function Admin() {
       </section>
 
       <PlansCard plans={plans.data ?? []} onChanged={() => plans.reload()} />
+      <ReferralCard plans={plans.data ?? []} />
 
       <section className="card">
         <h2>ใบเชิญสมัครสมาชิก</h2>
@@ -192,6 +195,37 @@ function PlansCard({ plans, onChanged }: { plans: Plan[]; onChanged: () => Promi
     }
   }
 
+  const blank = { id: '', name: '', device_quota: '10', site_quota: '2', camera_quota: '2', retention_days: '30' };
+  const [nw, setNw] = useState(blank);
+
+  async function remove(p: Plan) {
+    if (!window.confirm(`ลบแพ็กเกจ ${p.name}? (ลบได้เฉพาะแพ็กเกจที่ไม่มีผู้ใช้)`)) return;
+    setError(null);
+    try {
+      await api.deletePlan(p.id);
+      await onChanged();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  async function create(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api.createPlan({
+        id: nw.id.trim().toLowerCase(), name: nw.name.trim(),
+        device_quota: int(nw.device_quota), site_quota: int(nw.site_quota), camera_quota: int(nw.camera_quota),
+        recording_enabled: false, notification_types: ['telegram'],
+        retention_days: nw.retention_days.trim() === '' ? null : Math.max(1, int(nw.retention_days)),
+      });
+      setNw(blank);
+      await onChanged();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
   return (
     <section className="card">
       <h2>แพ็กเกจสมาชิก</h2>
@@ -234,12 +268,94 @@ function PlansCard({ plans, onChanged }: { plans: Plan[]; onChanged: () => Promi
                       style={{ width: 90 }}
                     />
                   </td>
-                  <td className="right"><button className="btn primary sm" disabled={!dirty || busy === p.id} onClick={() => void save(p)}>บันทึก</button></td>
+                  <td className="right">
+                    <div className="row-btns">
+                      <button className="btn primary sm" disabled={!dirty || busy === p.id} onClick={() => void save(p)}>บันทึก</button>
+                      {p.id !== 'free' && (
+                        <button className="btn danger sm" disabled={busy === p.id} onClick={() => void remove(p)}>ลบ</button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      </div>
+      <form className="form row" onSubmit={(e) => void create(e)}>
+        <label className="field"><span>รหัสแพ็กเกจใหม่ (a-z 0-9 - _)</span><input value={nw.id} onChange={(e) => setNw({ ...nw, id: e.target.value })} placeholder="เช่น starter" required /></label>
+        <label className="field"><span>ชื่อที่แสดง</span><input value={nw.name} onChange={(e) => setNw({ ...nw, name: e.target.value })} required /></label>
+        <label className="field"><span>อุปกรณ์</span><input type="number" min={0} value={nw.device_quota} onChange={(e) => setNw({ ...nw, device_quota: e.target.value })} /></label>
+        <label className="field"><span>ไซต์</span><input type="number" min={0} value={nw.site_quota} onChange={(e) => setNw({ ...nw, site_quota: e.target.value })} /></label>
+        <label className="field"><span>กล้อง</span><input type="number" min={0} value={nw.camera_quota} onChange={(e) => setNw({ ...nw, camera_quota: e.target.value })} /></label>
+        <label className="field"><span>เก็บข้อมูล (วัน)</span><input type="number" min={1} value={nw.retention_days} onChange={(e) => setNw({ ...nw, retention_days: e.target.value })} placeholder="ไม่จำกัด" /></label>
+        <button className="btn primary" type="submit">+ เพิ่มแพ็กเกจ</button>
+      </form>
+      <p className="muted small">แพ็กเกจใหม่เริ่มที่ Telegram อย่างเดียว ไม่บันทึกคลิป — ปรับต่อในตารางด้านบนได้ทันที</p>
+    </section>
+  );
+}
+
+function ReferralCard({ plans }: { plans: Plan[] }) {
+  const settings = useLoad(() => api.referralSettings(), []);
+  const list = useLoad(() => api.referrals(), []);
+  const [form, setForm] = useState<ReferralSettings | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const f = form ?? settings.data;
+  const int = (v: string) => Math.max(0, Math.floor(Number(v)) || 0);
+
+  async function save() {
+    if (!f) return;
+    setError(null);
+    setInfo(null);
+    try {
+      settings.setData(await api.saveReferralSettings(f));
+      setForm(null);
+      setInfo('บันทึกโปรโมชันแล้ว');
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>โปรโมชันแนะนำสมาชิก</h2>
+      <p className="muted">สมาชิกทุกคนมีรหัสแนะนำของตัวเอง ผู้สมัครใหม่ใส่รหัสนี้ตอนสมัคร (ใช้แทนใบเชิญได้ในโหมดเชิญ) ทั้งสองฝ่ายได้วันเพิ่ม: ผู้ใช้ Free/หมดอายุจะได้ใช้แพ็กเกจรางวัลตามจำนวนวัน ผู้ที่มีวันหมดอายุอยู่แล้วจะได้ต่ออายุเพิ่ม (ถ้าต้องยืนยันอีเมล จะได้หลังยืนยัน)</p>
+      <ErrorBox message={error ?? settings.error} />
+      {info && <div className="info-box">{info}</div>}
+      {f && (
+        <div className="form row">
+          <label className="check"><input type="checkbox" checked={f.enabled} onChange={(e) => setForm({ ...f, enabled: e.target.checked })} /><span>เปิดโปรโมชัน</span></label>
+          <label className="field"><span>ผู้แนะนำได้ (วัน/คน)</span><input type="number" min={0} value={f.inviter_days} onChange={(e) => setForm({ ...f, inviter_days: int(e.target.value) })} /></label>
+          <label className="field"><span>ผู้สมัครใหม่ได้ (วัน)</span><input type="number" min={0} value={f.invitee_days} onChange={(e) => setForm({ ...f, invitee_days: int(e.target.value) })} /></label>
+          <label className="field">
+            <span>แพ็กเกจรางวัล</span>
+            <select value={f.reward_plan} onChange={(e) => setForm({ ...f, reward_plan: e.target.value })}>
+              {plans.map((pl) => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+            </select>
+          </label>
+          <label className="field"><span>รับรางวัลสูงสุดต่อคน (0 = ไม่จำกัด)</span><input type="number" min={0} value={f.max_rewards_per_user} onChange={(e) => setForm({ ...f, max_rewards_per_user: int(e.target.value) })} /></label>
+          <button className="btn primary" disabled={!form} onClick={() => void save()}>บันทึก</button>
+        </div>
+      )}
+      <div className="table-wrap flat">
+        <table>
+          <thead><tr><th>ผู้แนะนำ</th><th>ผู้สมัครใหม่</th><th>สมัครเมื่อ</th><th>ผู้แนะนำได้</th><th>ผู้สมัครได้</th><th>สถานะ</th></tr></thead>
+          <tbody>
+            {(list.data ?? []).map((r) => (
+              <tr key={r.id}>
+                <td>{r.inviter_email}</td>
+                <td>{r.invitee_email}</td>
+                <td className="muted">{fmtDateTime(r.created_at)}</td>
+                <td className="mono">{r.inviter_days} วัน</td>
+                <td className="mono">{r.invitee_days} วัน</td>
+                <td>{r.rewarded_at ? <span className="tag sent">จ่ายแล้ว</span> : <span className="tag skipped">รอยืนยันอีเมล</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {(list.data ?? []).length === 0 && <div className="empty">ยังไม่มีการแนะนำ</div>}
       </div>
     </section>
   );
@@ -254,6 +370,12 @@ function UserManageModal({ target, isSelf, onClose, onChanged }: {
   const [status, setStatus] = useState(target.status);
   const allPlans = useLoad(() => api.plans(), []);
   const [planId, setPlanId] = useState(target.plan_id);
+  const ov: PlanOverrides = target.plan_overrides ?? {};
+  const [ovCam, setOvCam] = useState(ov.camera_quota == null ? '' : String(ov.camera_quota));
+  const [ovRec, setOvRec] = useState<'' | 'yes' | 'no'>(ov.recording_enabled == null ? '' : ov.recording_enabled ? 'yes' : 'no');
+  const [ovCh, setOvCh] = useState<string[] | null>(ov.notification_types ?? null);
+  const [ovRet, setOvRet] = useState(ov.retention_days == null ? '' : String(ov.retention_days));
+  const [ovRetUnl, setOvRetUnl] = useState(!!ov.retention_unlimited);
   const [expires, setExpires] = useState(target.plan_expires_at ? toDateInput(target.plan_expires_at) : '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -289,6 +411,15 @@ function UserManageModal({ target, isSelf, onClose, onChanged }: {
         device_quota: num(devQuota),
         site_quota: num(siteQuota),
         plan_id: planId,
+        plan_overrides: (() => {
+          const o: PlanOverrides = {};
+          if (ovCam.trim() !== '') o.camera_quota = num(ovCam) ?? 0;
+          if (ovRec) o.recording_enabled = ovRec === 'yes';
+          if (ovCh) o.notification_types = ovCh;
+          if (ovRetUnl) o.retention_unlimited = true;
+          else if (ovRet.trim() !== '') o.retention_days = Math.max(1, num(ovRet) ?? 1);
+          return Object.keys(o).length > 0 ? o : null;
+        })(),
         plan_expires_at: expires === '' ? null : new Date(`${expires}T23:59:59`).toISOString(),
         status,
       });
@@ -361,6 +492,36 @@ function UserManageModal({ target, isSelf, onClose, onChanged }: {
               <button type="button" className="btn sm" onClick={() => setExpires(extendFrom(expires, 365))}>+1 ปี</button>
               <button type="button" className="btn ghost sm" onClick={() => setExpires('')}>ไม่หมดอายุ</button>
             </div>
+          </div>
+        </div>
+      )}
+      {target.role !== 'admin' && (
+        <div className="subsec">
+          <h3>สิทธิ์เฉพาะคนนี้ (ทับแพ็กเกจ — เว้นว่าง/"ตามแพ็กเกจ" = ใช้ค่าของแพ็กเกจ)</h3>
+          <div className="form row">
+            <label className="field"><span>โควตากล้อง</span><input type="number" min={0} value={ovCam} onChange={(e) => setOvCam(e.target.value)} placeholder="ตามแพ็กเกจ" /></label>
+            <label className="field">
+              <span>บันทึกคลิป</span>
+              <select value={ovRec} onChange={(e) => setOvRec(e.target.value as '' | 'yes' | 'no')}>
+                <option value="">ตามแพ็กเกจ</option>
+                <option value="yes">ได้</option>
+                <option value="no">ไม่ได้</option>
+              </select>
+            </label>
+            <label className="field"><span>เก็บข้อมูลเซนเซอร์ (วัน)</span><input type="number" min={1} value={ovRet} disabled={ovRetUnl} onChange={(e) => setOvRet(e.target.value)} placeholder="ตามแพ็กเกจ" /></label>
+            <label className="check"><input type="checkbox" checked={ovRetUnl} onChange={(e) => setOvRetUnl(e.target.checked)} /><span>เก็บไม่จำกัด</span></label>
+          </div>
+          <div className="row-btns">
+            <label className="check">
+              <input type="checkbox" checked={ovCh !== null} onChange={(e) => setOvCh(e.target.checked ? [] : null)} />
+              <span>กำหนดช่องทางแจ้งเตือนเอง</span>
+            </label>
+            {ovCh !== null && CHANNELS.map((c) => (
+              <label key={c.id} className="check">
+                <input type="checkbox" checked={ovCh.includes(c.id)} onChange={(e) => setOvCh(e.target.checked ? [...ovCh, c.id] : ovCh.filter((x) => x !== c.id))} />
+                <span>{c.label}</span>
+              </label>
+            ))}
           </div>
         </div>
       )}

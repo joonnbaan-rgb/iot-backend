@@ -180,6 +180,16 @@ export interface PublicConfig {
   registration_mode: 'open' | 'invite' | 'closed';
   password_reset_available: boolean;
   email_verification_required: boolean;
+  referral_enabled?: boolean;
+}
+
+export interface ReferralInfo {
+  code: string | null;
+  invited_count: number;
+  rewarded_count: number;
+  days_earned: number;
+  bonus_days_received: number;
+  promo: { enabled: boolean; inviter_days: number; invitee_days: number; reward_plan: string; max_rewards_per_user: number };
 }
 
 export interface Usage {
@@ -187,6 +197,7 @@ export interface Usage {
   sites: { used: number; limit: number | null };
   cameras?: { used: number; limit: number | null };
   plan?: { id: string; name: string; expires_at: string | null; expired: boolean; days_left: number | null };
+  viewer?: boolean;
   features?: { recording_enabled: boolean; notification_types: string[]; retention_days: number | null };
 }
 

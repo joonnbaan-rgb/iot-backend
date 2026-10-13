@@ -15,6 +15,7 @@ export interface UsageView {
     expired: boolean;
     days_left: number | null; // null = ไม่หมดอายุ; ติดลบไม่มี (หมดอายุแล้วใช้ expired)
   };
+  viewer: boolean; // ไม่มีอุปกรณ์ของตัวเอง: ไม่ต้องมีแพ็กเกจ
   features: {
     recording_enabled: boolean;
     notification_types: string[];
@@ -45,6 +46,7 @@ export class QuotaService {
       sites: { used: row.sites, limit: l.site_quota },
       cameras: { used: row.cameras, limit: l.camera_quota },
       plan: { id: l.plan_id, name: l.plan_name, expires_at: l.expires_at, expired: l.expired, days_left: daysLeft },
+      viewer: l.viewer,
       features: {
         recording_enabled: l.recording_enabled,
         notification_types: l.notification_types,

@@ -16,6 +16,7 @@ import { CamerasModule } from './cameras/cameras.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PlansModule } from './plans/plans.module';
+import { ReferralsModule } from './referrals/referrals.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -41,6 +42,7 @@ import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
     TypeOrmModule.forRoot(dataSourceOptions),
     AuthModule,
     PlansModule,
+    ReferralsModule,
     UsersModule,
     DevicesModule,
     RulesModule,

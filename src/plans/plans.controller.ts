@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PlansService } from './plans.service';
 import { UpdatePlanDto } from './dto/update-plan.dto';
+import { CreatePlanDto } from './dto/create-plan.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -14,6 +15,19 @@ export class PlansController {
   @Get()
   list() {
     return this.plans.list();
+  }
+
+  @Post()
+  @Roles(UserRole.ADMIN)
+  create(@Body() dto: CreatePlanDto) {
+    return this.plans.create(dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @Roles(UserRole.ADMIN)
+  async remove(@Param('id') id: string): Promise<void> {
+    await this.plans.remove(id);
   }
 
   @Patch(':id')

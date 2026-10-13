@@ -1,7 +1,7 @@
 import type {
   AuthTokens, Device, UserDevice, DeleteUserResult, DeviceCommand, DeviceType, Invite, InviteCreated, LinkCode, Me, MqttCredentials, NotificationLog,
   NotificationSettingsView, NotificationTestResult,
-  Plan, SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
+  Plan, PlanOverrides, ReferralRow, ReferralSettings, SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
 } from './types';
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
@@ -147,8 +147,13 @@ export const api = {
 
   users: () => get<UserRow[]>('/users'),
   plans: () => get<Plan[]>('/plans'),
+  createPlan: (b: Omit<Plan, 'sort_order'>) => post<Plan>('/plans', b),
+  deletePlan: (id: string) => del(`/plans/${id}`),
+  referralSettings: () => get<ReferralSettings>('/referrals/settings'),
+  saveReferralSettings: (b: Partial<ReferralSettings>) => put<ReferralSettings>('/referrals/settings', b),
+  referrals: () => get<ReferralRow[]>('/referrals'),
   updatePlan: (id: string, b: Partial<Omit<Plan, 'id' | 'sort_order'>>) => patch<Plan>(`/plans/${id}`, b),
-  updateUser: (id: string, b: { device_quota?: number | null; site_quota?: number | null; plan_id?: string; plan_expires_at?: string | null; status?: 'active' | 'suspended' }) =>
+  updateUser: (id: string, b: { device_quota?: number | null; site_quota?: number | null; plan_id?: string; plan_expires_at?: string | null; plan_overrides?: PlanOverrides | null; status?: 'active' | 'suspended' }) =>
     patch<UserRow>(`/users/${id}`, b),
   deleteUser: (id: string, devices?: 'delete' | 'transfer') =>
     del<DeleteUserResult>(`/users/${id}${devices ? `?devices=${devices}` : ''}`),

@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { InvitesService } from './invites.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
+import { ReferralsModule } from '../referrals/referrals.module';
 import { InvitesController } from './invites.controller';
 
 @Module({
@@ -16,6 +17,7 @@ import { InvitesController } from './invites.controller';
     TypeOrmModule.forFeature([User, RefreshToken]),
     NotificationsModule,
     UsersModule,
+    ReferralsModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

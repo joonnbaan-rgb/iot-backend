@@ -42,6 +42,14 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   plan_expires_at: Date | null;
 
+  // สิทธิ์รายคนที่ admin กำหนดทับแพ็กเกจ (ดู PlanOverrides)
+  @Column({ type: 'jsonb', nullable: true })
+  plan_overrides: Record<string, unknown> | null;
+
+  // รหัสแนะนำสมาชิกประจำตัว
+  @Column({ type: 'varchar', length: 12, nullable: true, unique: true })
+  referral_code: string | null;
+
   @Column({ type: 'timestamptz', nullable: true })
   last_login_at: Date | null;
 

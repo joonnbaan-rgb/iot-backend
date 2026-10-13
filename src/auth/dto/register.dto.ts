@@ -15,4 +15,10 @@ export class RegisterDto {
   @IsString()
   @MaxLength(64)
   invite_code?: string;
+
+  // รหัสแนะนำของสมาชิก (ได้วันโปรโมชันทั้งสองฝ่าย)
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  referral_code?: string;
 }
