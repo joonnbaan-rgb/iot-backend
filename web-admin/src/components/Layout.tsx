@@ -33,6 +33,11 @@ export function Layout() {
               ผู้ใช้และใบเชิญ
             </NavLink>
           )}
+          {user?.role === 'admin' && (
+            <NavLink to="/system" className={({ isActive }) => (isActive ? 'nav on' : 'nav')}>
+              ระบบ backend
+            </NavLink>
+          )}
         </nav>
         <div className="side-foot">
           <div className="who" title={user?.email}>{user?.email}</div>

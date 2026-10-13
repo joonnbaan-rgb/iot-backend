@@ -9,6 +9,7 @@ import { Sites } from './pages/Sites';
 import { SiteDetail } from './pages/SiteDetail';
 import { Notifications } from './pages/Notifications';
 import { Admin } from './pages/Admin';
+import { System } from './pages/System';
 
 export function App() {
   const { user, loading } = useAuth();
@@ -24,6 +25,7 @@ export function App() {
         <Route path="sites/:id" element={<SiteDetail />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="admin" element={<Admin />} />
+        <Route path="system" element={<System />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

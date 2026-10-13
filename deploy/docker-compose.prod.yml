@@ -215,6 +215,8 @@ services:
       context: ../web-admin
       args:
         VITE_API_BASE_URL: https://${API_DOMAIN}
+        # ลิงก์ Grafana ในหน้า "ระบบ backend" (ว่างถ้าไม่ได้ตั้ง GRAFANA_DOMAIN)
+        VITE_LINK_GRAFANA: ${GRAFANA_DOMAIN:+https://${GRAFANA_DOMAIN}}
     restart: unless-stopped
 
   # เฟส H: เก็บ metrics + แดชบอร์ด (เข้าถึงเฉพาะในเครือข่าย docker; Grafana เปิดผ่าน Caddy ที่ monitor.<โดเมน>)

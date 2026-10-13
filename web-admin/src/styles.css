@@ -233,3 +233,9 @@ input:focus, select:focus { outline: 2px solid rgba(45, 212, 191, 0.45); border-
 .link-code { font-family: var(--mono); font-size: 28px; letter-spacing: 4px; font-weight: 700; }
 
 .danger-text { color: var(--danger, #e5484d); }
+
+.link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.link-card { display: block; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+.link-card:hover { border-color: var(--accent, #3b82f6); transform: translateY(-1px); }
+.link-card h2 { margin: 0 0 6px; }
+.link-card p { margin: 0 0 10px; }
