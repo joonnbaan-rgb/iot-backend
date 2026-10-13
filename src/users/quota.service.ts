@@ -1,54 +1,67 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
-import { User, UserRole } from './entities/user.entity';
+import { User } from './entities/user.entity';
+import { PlansService } from '../plans/plans.service';
 
 export interface UsageView {
   devices: { used: number; limit: number | null };
   sites: { used: number; limit: number | null };
+  cameras: { used: number; limit: number | null };
+  plan: {
+    id: string;
+    name: string;
+    expires_at: Date | null;
+    expired: boolean;
+    days_left: number | null; // null = ไม่หมดอายุ; ติดลบไม่มี (หมดอายุแล้วใช้ expired)
+  };
+  features: {
+    recording_enabled: boolean;
+    notification_types: string[];
+    retention_days: number | null;
+  };
 }
 
-/** โควตาอุปกรณ์/ไซต์ต่อผู้ใช้ (admin ไม่จำกัด; limit = null) */
+/** โควตาและสิทธิ์ตามแพ็กเกจของผู้ใช้ (admin ไม่จำกัด; limit = null) */
 @Injectable()
 export class QuotaService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
-    private readonly config: ConfigService,
+    private readonly plans: PlansService,
   ) {}
 
-  private defaultOf(key: 'DEFAULT_DEVICE_QUOTA' | 'DEFAULT_SITE_QUOTA', fallback: number): number {
-    const n = parseInt(this.config.get<string>(key, String(fallback)), 10);
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
-  }
-
   async usage(userId: string): Promise<UsageView> {
-    const user = await this.users.findOne({ where: { id: userId } });
+    const l = await this.plans.limitsFor(userId);
     const [row] = await this.users.query(
       `SELECT (SELECT COUNT(*)::int FROM devices WHERE owner_id = $1) AS devices,
+              (SELECT COUNT(*)::int FROM devices WHERE owner_id = $1 AND type = 'camera') AS cameras,
               (SELECT COUNT(*)::int FROM sites WHERE created_by = $1 AND NOT is_personal) AS sites`,
       [userId],
     );
-    const unlimited = !user || user.role === UserRole.ADMIN;
+    const daysLeft =
+      l.expires_at && !l.expired ? Math.max(0, Math.ceil((new Date(l.expires_at).getTime() - Date.now()) / 86_400_000)) : null;
     return {
-      devices: {
-        used: row.devices,
-        limit: unlimited ? null : (user.device_quota ?? this.defaultOf('DEFAULT_DEVICE_QUOTA', 20)),
-      },
-      sites: {
-        used: row.sites,
-        limit: unlimited ? null : (user.site_quota ?? this.defaultOf('DEFAULT_SITE_QUOTA', 5)),
+      devices: { used: row.devices, limit: l.device_quota },
+      sites: { used: row.sites, limit: l.site_quota },
+      cameras: { used: row.cameras, limit: l.camera_quota },
+      plan: { id: l.plan_id, name: l.plan_name, expires_at: l.expires_at, expired: l.expired, days_left: daysLeft },
+      features: {
+        recording_enabled: l.recording_enabled,
+        notification_types: l.notification_types,
+        retention_days: l.retention_days,
       },
     };
   }
 
-  /** ตรวจก่อนสร้างอุปกรณ์/ไซต์ใหม่ให้ userId (เกินโควตา -> 403 พร้อมข้อความที่อ่านง่าย) */
-  async assertCanAdd(userId: string, what: 'devices' | 'sites', adding = 1): Promise<void> {
-    const u = (await this.usage(userId))[what];
+  /** ตรวจก่อนสร้างอุปกรณ์/ไซต์/กล้องใหม่ให้ userId (เกินโควตา -> 403 พร้อมข้อความที่อ่านง่าย) */
+  async assertCanAdd(userId: string, what: 'devices' | 'sites' | 'cameras', adding = 1): Promise<void> {
+    const usage = await this.usage(userId);
+    const u = usage[what];
     if (u.limit !== null && u.used + adding > u.limit) {
-      const label = what === 'devices' ? 'อุปกรณ์' : 'ไซต์';
+      const label = what === 'devices' ? 'อุปกรณ์' : what === 'sites' ? 'ไซต์' : 'กล้อง';
+      const plan = usage.plan.expired ? 'แพ็กเกจหมดอายุ (ใช้สิทธิ์ Free)' : `แพ็กเกจ ${usage.plan.name}`;
       throw new ForbiddenException(
-        `ครบโควตา${label}แล้ว (${u.used}/${u.limit}) ลบ${label}ที่ไม่ใช้ หรือติดต่อผู้ดูแลระบบเพื่อขอเพิ่ม`,
+        `ครบโควตา${label}แล้ว (${u.used}/${u.limit}) ${plan} ลบ${label}ที่ไม่ใช้ หรืออัปเกรดแพ็กเกจ/ติดต่อผู้ดูแลระบบ`,
       );
     }
   }

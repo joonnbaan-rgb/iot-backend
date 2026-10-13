@@ -22,6 +22,7 @@ import { ChannelLinkService } from './channel-link.service';
 import { TelegramService } from './telegram.service';
 import { LineService } from './line.service';
 import { EmailService } from './email.service';
+import { PlansService } from '../plans/plans.service';
 import { NotificationChannel } from './entities/notification-channel.entity';
 import { ALL_EVENTS, NotificationSettings } from './entities/notification-settings.entity';
 import { UpdateChannelDto, UpdateSettingsDto } from './dto/settings.dto';
@@ -39,6 +40,7 @@ export class NotificationsController {
     private readonly line: LineService,
     private readonly email: EmailService,
     private readonly config: ConfigService,
+    private readonly plans: PlansService,
     @InjectRepository(NotificationChannel) private readonly channels: Repository<NotificationChannel>,
     @InjectRepository(NotificationSettings) private readonly settings: Repository<NotificationSettings>,
     @InjectRepository(User) private readonly users: Repository<User>,
@@ -53,12 +55,14 @@ export class NotificationsController {
 
   @Get('settings')
   async getSettings(@CurrentUser() user: CurrentUserPayload) {
-    const [s, channels, account] = await Promise.all([
+    const [s, channels, account, allowedTypes] = await Promise.all([
       this.notificationsService.settingsOf(user.sub),
       this.channels.find({ where: { user_id: user.sub }, order: { created_at: 'ASC' } }),
       this.users.findOne({ where: { id: user.sub }, select: { id: true, email: true } }),
+      this.plans.allowedChannelTypes(user.sub),
     ]);
     return {
+      allowed_types: allowedTypes,
       providers: {
         telegram: this.telegram.hasBot(),
         line: this.line.isConfigured(),
@@ -98,6 +102,7 @@ export class NotificationsController {
   @Post('channels/email')
   async addEmail(@CurrentUser() user: CurrentUserPayload) {
     if (!this.email.isConfigured()) throw new BadRequestException('เซิร์ฟเวอร์ยังไม่ได้ตั้งค่าการส่งอีเมล');
+    await this.plans.assertChannelAllowed(user.sub, 'email');
     const account = await this.users.findOne({ where: { id: user.sub }, select: { id: true, email: true } });
     if (!account) throw new NotFoundException();
     if (await this.channels.exist({ where: { user_id: user.sub, type: 'email' } })) {
@@ -111,6 +116,7 @@ export class NotificationsController {
   @Post('channels/:type/link-code')
   async linkCode(@CurrentUser() user: CurrentUserPayload, @Param('type') type: string) {
     if (type === 'telegram' || type === 'line') {
+      await this.plans.assertChannelAllowed(user.sub, type);
       const exists = await this.channels.exist({ where: { user_id: user.sub, type } });
       if (exists) throw new BadRequestException('เพิ่มช่องทางนี้แล้ว หากต้องการผูกใหม่ให้ลบช่องทางเดิมก่อน');
     }

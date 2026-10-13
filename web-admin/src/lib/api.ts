@@ -1,7 +1,7 @@
 import type {
   AuthTokens, Device, UserDevice, DeleteUserResult, DeviceCommand, DeviceType, Invite, InviteCreated, LinkCode, Me, MqttCredentials, NotificationLog,
   NotificationSettingsView, NotificationTestResult,
-  SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
+  Plan, SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
 } from './types';
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
@@ -146,7 +146,9 @@ export const api = {
   testNotification: () => post<NotificationTestResult[]>('/notifications/test'),
 
   users: () => get<UserRow[]>('/users'),
-  updateUser: (id: string, b: { device_quota?: number | null; site_quota?: number | null; status?: 'active' | 'suspended' }) =>
+  plans: () => get<Plan[]>('/plans'),
+  updatePlan: (id: string, b: Partial<Omit<Plan, 'id' | 'sort_order'>>) => patch<Plan>(`/plans/${id}`, b),
+  updateUser: (id: string, b: { device_quota?: number | null; site_quota?: number | null; plan_id?: string; plan_expires_at?: string | null; status?: 'active' | 'suspended' }) =>
     patch<UserRow>(`/users/${id}`, b),
   deleteUser: (id: string, devices?: 'delete' | 'transfer') =>
     del<DeleteUserResult>(`/users/${id}${devices ? `?devices=${devices}` : ''}`),

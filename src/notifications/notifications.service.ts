@@ -8,6 +8,7 @@ import { ALL_EVENTS, NotificationSettings } from './entities/notification-settin
 import { TelegramService } from './telegram.service';
 import { LineService } from './line.service';
 import { EmailService } from './email.service';
+import { PlansService } from '../plans/plans.service';
 import { DeviceAccessService } from '../device-access/device-access.service';
 import { User, UserRole } from '../users/entities/user.entity';
 
@@ -39,6 +40,7 @@ export class NotificationsService {
     private readonly email: EmailService,
     private readonly access: DeviceAccessService,
     private readonly config: ConfigService,
+    private readonly plans: PlansService,
   ) {}
 
   /**
@@ -81,7 +83,7 @@ export class NotificationsService {
         );
         const settings = await this.settingsOf(admin.id);
         if (!critical && this.inQuietHours(settings)) continue;
-        const channels = await this.channelRepository.find({ where: { user_id: admin.id, enabled: true } });
+        const channels = await this.activeChannels(admin.id);
         for (const ch of channels) {
           await this.sendAndLog(admin.id, ch.type, 'system_alert', message, () => this.dispatch(ch, 'system_alert', message));
         }
@@ -114,10 +116,19 @@ export class NotificationsService {
     );
     if (this.inQuietHours(settings)) return;
 
-    const channels = await this.channelRepository.find({ where: { user_id: userId, enabled: true } });
+    const channels = await this.activeChannels(userId);
     for (const ch of channels) {
       await this.sendAndLog(userId, ch.type, eventType, message, () => this.dispatch(ch, eventType, message));
     }
+  }
+
+  /** ช่องทางที่เปิดอยู่ และแพ็กเกจของผู้ใช้ยังอนุญาตให้ใช้ (แพ็กเกจลดระดับ/หมดอายุ = ข้ามช่องทางที่ไม่รองรับ) */
+  private async activeChannels(userId: string): Promise<NotificationChannel[]> {
+    const [channels, allowed] = await Promise.all([
+      this.channelRepository.find({ where: { user_id: userId, enabled: true } }),
+      this.plans.allowedChannelTypes(userId).catch(() => ['telegram', 'line', 'email']),
+    ]);
+    return channels.filter((c) => allowed.includes(c.type));
   }
 
   private dispatch(ch: NotificationChannel, eventType: string, message: string): Promise<void> {
@@ -154,7 +165,7 @@ export class NotificationsService {
 
   /** ทดสอบส่งไปทุกช่องทางที่เปิดอยู่ของผู้ใช้ (ไม่สน quiet hours) คืนผลรายช่องทาง */
   async sendTest(userId: string): Promise<{ channel: string; target: string; ok: boolean; error?: string }[]> {
-    const channels = await this.channelRepository.find({ where: { user_id: userId, enabled: true } });
+    const channels = await this.activeChannels(userId);
     const out: { channel: string; target: string; ok: boolean; error?: string }[] = [];
     for (const ch of channels) {
       try {

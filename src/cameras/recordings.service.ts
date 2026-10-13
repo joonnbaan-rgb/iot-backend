@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Client as MinioClient } from 'minio';
 import { CameraRecording } from './entities/camera-recording.entity';
+import { PlansService } from '../plans/plans.service';
 
 const BUCKET_NAME = 'camera-recordings';
 
@@ -20,6 +21,7 @@ export class RecordingsService implements OnModuleInit {
     @InjectRepository(CameraRecording)
     private readonly recordingRepository: Repository<CameraRecording>,
     private readonly configService: ConfigService,
+    private readonly plans: PlansService,
   ) {
     this.recordingsDir = this.configService.get<string>('RECORDINGS_DIR', './recordings');
   }
@@ -77,6 +79,19 @@ export class RecordingsService implements OnModuleInit {
     try {
       files = fs.readdirSync(deviceDir).filter((f) => f.endsWith('.mp4'));
     } catch {
+      return;
+    }
+
+    // แพ็กเกจของเจ้าของไม่รวมการบันทึกคลิป (หรือหมดอายุ): ไม่เก็บ ทิ้งไฟล์ที่ MediaMTX เขียนเสร็จแล้ว
+    if (files.length > 0 && !(await this.plans.recordingAllowedForDevice(deviceId).catch(() => true))) {
+      for (const filename of files) {
+        const filePath = path.join(deviceDir, filename);
+        try {
+          if ((Date.now() - fs.statSync(filePath).mtimeMs) / 1000 >= 5) fs.unlinkSync(filePath);
+        } catch {
+          /* ไฟล์ถูกใช้งานอยู่/หายไปแล้ว ลองใหม่รอบหน้า */
+        }
+      }
       return;
     }
 

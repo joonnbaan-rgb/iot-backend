@@ -69,6 +69,7 @@ export class DevicesService {
       if (found.length === 0) throw new BadRequestException('ไม่พบผู้ใช้ที่ระบุเป็นเจ้าของ');
     }
     await this.quota.assertCanAdd(ownerId, 'devices');
+    if (isCamera) await this.quota.assertCanAdd(ownerId, 'cameras');
     const siteId = dto.site_id
       ? (await this.assertSiteAdmin(user, dto.site_id), dto.site_id)
       : await ensurePersonalSite(this.deviceRepository.manager, ownerId);
@@ -116,6 +117,7 @@ export class DevicesService {
     if (target.status !== 'active') throw new BadRequestException('บัญชีปลายทางถูกระงับ');
     if (target.id === device.owner_id) throw new BadRequestException('อุปกรณ์นี้เป็นของบัญชีนี้อยู่แล้ว');
     await this.quota.assertCanAdd(target.id, 'devices');
+    if (device.type === DeviceType.CAMERA) await this.quota.assertCanAdd(target.id, 'cameras');
 
     const siteId = await ensurePersonalSite(this.deviceRepository.manager, target.id);
     await this.deviceRepository.manager.transaction(async (m) => {

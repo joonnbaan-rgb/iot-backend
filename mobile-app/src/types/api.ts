@@ -159,6 +159,7 @@ export interface NotificationChannelView {
 }
 
 export interface NotificationSettingsView {
+  allowed_types?: string[]; // ช่องทางที่แพ็กเกจอนุญาต
   providers: { telegram: boolean; line: boolean; email: boolean };
   account_email: string | null;
   all_events: string[];
@@ -184,6 +185,9 @@ export interface PublicConfig {
 export interface Usage {
   devices: { used: number; limit: number | null };
   sites: { used: number; limit: number | null };
+  cameras?: { used: number; limit: number | null };
+  plan?: { id: string; name: string; expires_at: string | null; expired: boolean; days_left: number | null };
+  features?: { recording_enabled: boolean; notification_types: string[]; retention_days: number | null };
 }
 
 export interface PendingShare {

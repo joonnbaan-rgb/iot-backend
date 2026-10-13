@@ -35,6 +35,13 @@ export class User {
   @Column({ type: 'int', nullable: true })
   site_quota: number | null;
 
+  // แพ็กเกจสมาชิก (ตาราง plans) และวันหมดอายุ (null = ไม่หมดอายุ) หมดอายุแล้วใช้สิทธิ์ของ free
+  @Column({ type: 'varchar', length: 32, default: 'free' })
+  plan_id: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  plan_expires_at: Date | null;
+
   @Column({ type: 'timestamptz', nullable: true })
   last_login_at: Date | null;
 

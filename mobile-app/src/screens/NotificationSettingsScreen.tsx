@@ -124,6 +124,7 @@ export function NotificationSettingsScreen() {
   if (!s) return <View style={styles.container} />;
 
   const has = (type: string) => s.channels.some((c) => c.type === type);
+  const allowed = (type: string) => (s.allowed_types ?? ['telegram', 'line', 'email']).includes(type);
 
   const providerHint = (ok: boolean) => (ok ? '' : ' (เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า)');
 
@@ -181,27 +182,30 @@ export function NotificationSettingsScreen() {
         <Button
           title={has('telegram') ? '✓ Telegram' : '+ Telegram'}
           variant="secondary"
-          disabled={!s.providers.telegram || has('telegram')}
+          disabled={!s.providers.telegram || has('telegram') || !allowed('telegram')}
           onPress={() => startLink('telegram')}
           style={styles.flex}
         />
         <Button
           title={has('line') ? '✓ LINE' : '+ LINE'}
           variant="secondary"
-          disabled={!s.providers.line || has('line')}
+          disabled={!s.providers.line || has('line') || !allowed('line')}
           onPress={() => startLink('line')}
           style={styles.flex}
         />
         <Button
           title={has('email') ? '✓ อีเมล' : '+ อีเมล'}
           variant="secondary"
-          disabled={!s.providers.email || has('email')}
+          disabled={!s.providers.email || has('email') || !allowed('email')}
           onPress={() => run(() => notificationsApi.addEmail(), 'เพิ่มอีเมลไม่สำเร็จ')}
           style={styles.flex}
         />
       </View>
       <Text style={styles.hint}>
         {['telegram', 'line', 'email'].some(has) ? '✓ = เพิ่มแล้ว (ช่องทางละ 1 บัญชี ลบก่อนหากต้องการผูกใหม่)\n' : ''}
+        {(['telegram', 'line', 'email'] as const).some((t) => !allowed(t))
+          ? `แพ็กเกจปัจจุบันใช้ไม่ได้: ${(['telegram', 'line', 'email'] as const).filter((t) => !allowed(t)).map((t) => (t === 'telegram' ? 'Telegram' : t === 'line' ? 'LINE' : 'อีเมล')).join(', ')}\n`
+          : ''}
         {providerHint(s.providers.telegram) && `Telegram${providerHint(s.providers.telegram)} `}
         {providerHint(s.providers.line) && `LINE${providerHint(s.providers.line)} `}
         {providerHint(s.providers.email) && `อีเมล${providerHint(s.providers.email)}`}

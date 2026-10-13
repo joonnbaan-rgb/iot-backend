@@ -5,8 +5,14 @@ export interface UserRow {
   id: string; email: string; role: UserRole; created_at: string;
   status: 'active' | 'suspended';
   device_quota: number | null; site_quota: number | null;
+  plan_id: string; plan_expires_at: string | null;
   last_login_at: string | null;
   device_count: number; site_count: number; shared_count: number;
+}
+export interface Plan {
+  id: string; name: string; sort_order: number;
+  device_quota: number; site_quota: number; camera_quota: number;
+  recording_enabled: boolean; notification_types: string[]; retention_days: number | null;
 }
 export interface UserDevice { id: string; name: string; type: DeviceType; status: DeviceStatus; location: string | null; created_at: string; last_seen_at: string | null }
 export interface AuthTokens { access_token: string; refresh_token: string; expires_in: string }
@@ -73,6 +79,7 @@ export interface NotificationChannel {
 }
 
 export interface NotificationSettingsView {
+  allowed_types?: string[]; // ช่องทางที่แพ็กเกจอนุญาต
   providers: { telegram: boolean; line: boolean; email: boolean };
   account_email: string | null;
   all_events: string[];

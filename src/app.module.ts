@@ -15,6 +15,7 @@ import { RulesModule } from './rules/rules.module';
 import { CamerasModule } from './cameras/cameras.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { PlansModule } from './plans/plans.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -39,6 +40,7 @@ import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]), // ค่า default: 100 request/นาที/IP ทั้งระบบ
     TypeOrmModule.forRoot(dataSourceOptions),
     AuthModule,
+    PlansModule,
     UsersModule,
     DevicesModule,
     RulesModule,

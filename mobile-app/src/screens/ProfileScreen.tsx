@@ -82,11 +82,40 @@ export function ProfileScreen() {
         <InfoRow label="เชื่อมต่อ backend" value={API_BASE_URL} />
       </View>
 
+      {usage?.plan && (
+        <View style={styles.infoCard}>
+          <InfoRow label="แพ็กเกจ" value={usage.plan.expired ? `${usage.plan.name} (หมดอายุ ใช้สิทธิ์ Free)` : usage.plan.name} />
+          <InfoRow
+            label="หมดอายุ"
+            value={
+              usage.plan.expires_at
+                ? `${new Date(usage.plan.expires_at).toLocaleDateString('th-TH')}${
+                    usage.plan.expired ? '' : usage.plan.days_left != null ? ` (อีก ${usage.plan.days_left} วัน)` : ''
+                  }`
+                : 'ไม่หมดอายุ'
+            }
+          />
+          {usage.features && (
+            <>
+              <InfoRow label="บันทึกคลิปกล้อง" value={usage.features.recording_enabled ? 'ได้' : 'ไม่รวมในแพ็กเกจ'} />
+              <InfoRow label="เก็บข้อมูลเซนเซอร์" value={usage.features.retention_days == null ? 'ไม่จำกัด' : `${usage.features.retention_days} วัน`} />
+              <InfoRow
+                label="ช่องทางแจ้งเตือน"
+                value={usage.features.notification_types.map((t) => (t === 'telegram' ? 'Telegram' : t === 'line' ? 'LINE' : 'อีเมล')).join(', ') || '-'}
+              />
+            </>
+          )}
+        </View>
+      )}
+
       {usage && (
         <View style={styles.infoCard}>
           <InfoRow label="อุปกรณ์ที่เป็นเจ้าของ" value={usage.devices.limit == null ? `${usage.devices.used} (ไม่จำกัด)` : `${usage.devices.used} / ${usage.devices.limit}`} />
           <InfoRow label="ไซต์ที่สร้างเพิ่ม" value={usage.sites.limit == null ? `${usage.sites.used} (ไม่จำกัด)` : `${usage.sites.used} / ${usage.sites.limit}`} />
-          <Text style={styles.quotaHint}>ต้องการโควตาเพิ่ม? ติดต่อผู้ดูแลระบบ</Text>
+          {usage.cameras && (
+            <InfoRow label="กล้อง" value={usage.cameras.limit == null ? `${usage.cameras.used} (ไม่จำกัด)` : `${usage.cameras.used} / ${usage.cameras.limit}`} />
+          )}
+          <Text style={styles.quotaHint}>ต้องการโควตาเพิ่มหรืออัปเกรดแพ็กเกจ? ติดต่อผู้ดูแลระบบ</Text>
         </View>
       )}
 

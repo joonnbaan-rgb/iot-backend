@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { QuotaService } from './quota.service';
+import { PlansService } from '../plans/plans.service';
 
 type SafeUser = Omit<User, 'password_hash'>;
 
@@ -13,13 +14,14 @@ export class UsersService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly quota: QuotaService,
+    private readonly plans: PlansService,
   ) {}
 
   /** รายชื่อผู้ใช้ทั้งหมดพร้อมจำนวนอุปกรณ์/ไซต์ที่ใช้อยู่ (สำหรับหน้าจัดการผู้ใช้ของ admin) */
   async findAll() {
     const rows: (User & { device_count: number; site_count: number; shared_count: number })[] =
       await this.userRepository.query(
-        `SELECT u.id, u.email, u.role, u.status, u.device_quota, u.site_quota, u.last_login_at, u.created_at,
+        `SELECT u.id, u.email, u.role, u.status, u.device_quota, u.site_quota, u.plan_id, u.plan_expires_at, u.last_login_at, u.created_at,
                 (SELECT COUNT(*)::int FROM devices d WHERE d.owner_id = u.id) AS device_count,
                 (SELECT COUNT(*)::int FROM sites s WHERE s.created_by = u.id AND NOT s.is_personal) AS site_count,
                 (SELECT COUNT(*)::int FROM device_shares x WHERE x.owner_id = u.id) AS shared_count
@@ -59,6 +61,11 @@ export class UsersService {
     }
     if (dto.device_quota !== undefined) user.device_quota = dto.device_quota;
     if (dto.site_quota !== undefined) user.site_quota = dto.site_quota;
+    if (dto.plan_id !== undefined) {
+      if (!(await this.plans.exists(dto.plan_id))) throw new BadRequestException('ไม่พบแพ็กเกจที่ระบุ');
+      user.plan_id = dto.plan_id;
+    }
+    if (dto.plan_expires_at !== undefined) user.plan_expires_at = dto.plan_expires_at ? new Date(dto.plan_expires_at) : null;
     if (dto.status !== undefined) user.status = dto.status;
     await this.userRepository.save(user);
     if (dto.status === 'suspended') {

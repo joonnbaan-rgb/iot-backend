@@ -126,6 +126,7 @@ export function NotificationSettings() {
   if (!s) return <>{settings.error ? <ErrorBox message={settings.error} /> : <div className="muted">กำลังโหลด…</div>}</>;
 
   // หนึ่งบัญชีต่อหนึ่งประเภทช่องทาง: เพิ่มแล้วจะเพิ่มซ้ำไม่ได้ (ลบก่อนหากต้องการผูกใหม่)
+  const allowed = (type: NotificationChannel['type']) => (s.allowed_types ?? ['telegram', 'line', 'email']).includes(type);
   const added = (type: NotificationChannel['type']) => s.channels.find((c) => c.type === type);
 
   return (
@@ -182,26 +183,31 @@ export function NotificationSettings() {
           {added('telegram') ? (
             <span className="muted">✓ เพิ่ม Telegram แล้ว ({added('telegram')?.label})</span>
           ) : (
-            <button className="btn" disabled={busy || !s.providers.telegram} onClick={() => void startLink('telegram')}>+ Telegram</button>
+            <button className="btn" disabled={busy || !s.providers.telegram || !allowed('telegram')} title={allowed('telegram') ? undefined : 'แพ็กเกจของคุณใช้ช่องทางนี้ไม่ได้'} onClick={() => void startLink('telegram')}>+ Telegram</button>
           )}
           {added('line') ? (
             <span className="muted">✓ เพิ่ม LINE แล้ว ({added('line')?.label})</span>
           ) : (
-            <button className="btn" disabled={busy || !s.providers.line} onClick={() => void startLink('line')}>+ LINE</button>
+            <button className="btn" disabled={busy || !s.providers.line || !allowed('line')} title={allowed('line') ? undefined : 'แพ็กเกจของคุณใช้ช่องทางนี้ไม่ได้'} onClick={() => void startLink('line')}>+ LINE</button>
           )}
           {added('email') ? (
             <span className="muted">✓ เพิ่มช่องทางอีเมลแล้ว ({added('email')?.label})</span>
           ) : (
             <button
               className="btn"
-              disabled={busy || !s.providers.email}
-              title={`ส่งไปที่ ${s.account_email ?? 'อีเมลของบัญชี'}`}
+              disabled={busy || !s.providers.email || !allowed('email')}
+              title={allowed('email') ? `ส่งไปที่ ${s.account_email ?? 'อีเมลของบัญชี'}` : 'แพ็กเกจของคุณใช้ช่องทางนี้ไม่ได้'}
               onClick={() => void run(async () => settings.setData(await api.addEmailChannel()), 'เพิ่มช่องทางอีเมลแล้ว')}
             >
               + อีเมล
             </button>
           )}
         </div>
+        {(['telegram', 'line', 'email'] as const).some((t) => !allowed(t)) && (
+          <p className="muted small">
+            แพ็กเกจปัจจุบันใช้ไม่ได้:{(['telegram', 'line', 'email'] as const).filter((t) => !allowed(t)).map((t) => ` ${TYPE_LABEL[t]}`).join(',')} (อัปเกรดแพ็กเกจหรือติดต่อผู้ดูแลระบบ)
+          </p>
+        )}
         {(!s.providers.telegram || !s.providers.line || !s.providers.email) && (
           <p className="muted small">
             ปุ่มที่กดไม่ได้ = เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า:
