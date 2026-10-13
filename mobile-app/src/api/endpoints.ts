@@ -19,6 +19,7 @@ import type {
   NotificationSettingsView,
   PendingShare,
   PublicConfig,
+  DeviceProfile,
   ReferralInfo,
   Usage,
   User,
@@ -181,4 +182,8 @@ export const sitesApi = {
 
 export const referralsApi = {
   me: () => apiClient.get<ReferralInfo>('/referrals/me').then((r) => r.data),
+};
+
+export const profilesApi = {
+  list: (type?: string) => apiClient.get<DeviceProfile[]>('/device-profiles', { params: type ? { type } : undefined }).then((r) => r.data),
 };

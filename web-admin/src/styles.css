@@ -239,3 +239,8 @@ input:focus, select:focus { outline: 2px solid rgba(45, 212, 191, 0.45); border-
 .link-card:hover { border-color: var(--accent, #3b82f6); transform: translateY(-1px); }
 .link-card h2 { margin: 0 0 6px; }
 .link-card p { margin: 0 0 10px; }
+
+.code { background: var(--bg-2, #0f172a); color: var(--text, #e2e8f0); border: 1px solid var(--line, #243044); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.5; white-space: pre; margin: 6px 0; max-height: 360px; }
+.steps { margin: 6px 0; padding-left: 20px; }
+.steps li { margin-bottom: 6px; }
+.profile-guide { margin-top: 10px; }

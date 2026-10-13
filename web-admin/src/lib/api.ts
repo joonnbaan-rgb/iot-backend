@@ -1,7 +1,7 @@
 import type {
   AuthTokens, Device, UserDevice, DeleteUserResult, DeviceCommand, DeviceType, Invite, InviteCreated, LinkCode, Me, MqttCredentials, NotificationLog,
   NotificationSettingsView, NotificationTestResult,
-  Plan, PlanOverrides, ReferralRow, ReferralSettings, SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
+  Plan, DeviceProfile, PlanOverrides, ReferralRow, ReferralSettings, SensorPoint, Site, SiteKind, SiteMember, SiteRole, StreamUrls, TelemetrySummary, UserRole, UserRow,
 } from './types';
 
 export const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
@@ -122,6 +122,15 @@ export const api = {
     get<TelemetrySummary>(`/devices/${id}/telemetry/summary?from=${encodeURIComponent(from)}`),
   commands: (id: string) => get<DeviceCommand[]>(`/devices/${id}/commands?limit=20`),
   sendCommand: (id: string, action: string) => post<DeviceCommand>(`/devices/${id}/commands`, { action }),
+  deviceProfiles: (params: { type?: string; q?: string; all?: boolean } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.type) qs.set('type', params.type);
+    if (params.q) qs.set('q', params.q);
+    if (params.all) qs.set('all', '1');
+    return get<DeviceProfile[]>(`/device-profiles${qs.toString() ? `?${qs}` : ''}`);
+  },
+  setProfileEnabled: (id: string, enabled: boolean) => patch<DeviceProfile>(`/device-profiles/${id}`, { enabled }),
+  setCameraSource: (id: string, rtsp_url: string) => put<unknown>(`/devices/${id}/camera`, { rtsp_url }),
   issueMqtt: (id: string) => post<MqttCredentials>(`/devices/${id}/mqtt-credentials`),
   revokeMqtt: (id: string) => del(`/devices/${id}/mqtt-credentials`),
   stream: (id: string) => get<StreamUrls>(`/devices/${id}/camera/stream`),

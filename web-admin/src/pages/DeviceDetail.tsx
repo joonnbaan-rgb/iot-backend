@@ -3,9 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getSocket, useSocketEvent } from '../lib/socket';
 import { DeviceGlyph, inferIcon } from '../lib/deviceIcons';
-import { TYPE_LABEL, type Device, type DeviceCommand, type MqttCredentials, type StreamUrls } from '../lib/types';
+import { TYPE_LABEL, type Device, type DeviceCommand, type DeviceProfile, type MqttCredentials, type StreamUrls } from '../lib/types';
 import { fmtDateTime, fmtNum, timeAgo } from '../lib/format';
 import { ErrorBox, Modal, PageHead, StatusPill, errMsg, useLoad } from '../components/ui';
+import { ProfileGuide } from '../components/ProfileGuide';
+import { ProfilePicker } from '../components/ProfilePicker';
 import { LineChart } from '../components/LineChart';
 import { HlsPlayer } from '../components/HlsPlayer';
 
@@ -207,6 +209,37 @@ function ManagePanel({ device, onChanged }: { device: Device; onChanged: () => P
   const [error, setError] = useState<string | null>(null);
   const [creds, setCreds] = useState<MqttCredentials | null>(null);
   const [newOwner, setNewOwner] = useState('');
+  // รหัส MQTT ที่เพิ่งออก (เก็บในหน้านี้เท่านั้น ไม่เก็บถาวร) ใช้เติมค่าในโค้ดตัวอย่างของคู่มือ
+  const [lastCreds, setLastCreds] = useState<MqttCredentials | null>(null);
+  const [guideProfile, setGuideProfile] = useState<DeviceProfile | null>(null);
+  const [savedProfileId] = useState<string | null>(() => {
+    try { return localStorage.getItem(`profile:${device.id}`); } catch { return null; }
+  });
+  const savedProfiles = useLoad(() => (savedProfileId ? api.deviceProfiles() : Promise.resolve([] as DeviceProfile[])), []);
+  useEffect(() => {
+    if (!guideProfile && savedProfileId && savedProfiles.data) {
+      setGuideProfile(savedProfiles.data.find((p) => p.id === savedProfileId) ?? null);
+    }
+  }, [savedProfiles.data, savedProfileId, guideProfile]);
+
+  function pickProfile(p: DeviceProfile | null) {
+    setGuideProfile(p);
+    try {
+      if (p) localStorage.setItem(`profile:${device.id}`, p.id);
+      else localStorage.removeItem(`profile:${device.id}`);
+    } catch { /* ไม่เป็นไร */ }
+  }
+
+  async function useRtsp(url: string) {
+    setError(null);
+    try {
+      await api.setCameraSource(device.id, url);
+      await onChanged();
+      window.alert('ตั้ง RTSP source ให้กล้องแล้ว');
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
 
   async function transfer() {
     if (!window.confirm(`โอน "${device.name}" ให้ ${newOwner.trim()}? คุณอาจเข้าถึงอุปกรณ์นี้ไม่ได้อีก`)) return;
@@ -239,7 +272,9 @@ function ManagePanel({ device, onChanged }: { device: Device; onChanged: () => P
   async function issue() {
     if (device.mqtt_credentials_at && !window.confirm('รหัสเดิมจะใช้ไม่ได้ทันที ต้องตั้งรหัสใหม่ในตัวอุปกรณ์ ดำเนินการต่อ?')) return;
     try {
-      setCreds(await api.issueMqtt(device.id));
+      const issued = await api.issueMqtt(device.id);
+      setCreds(issued);
+      setLastCreds(issued);
       await onChanged();
     } catch (err) {
       setError(errMsg(err));
@@ -299,6 +334,20 @@ function ManagePanel({ device, onChanged }: { device: Device; onChanged: () => P
           </div>
         </div>
       )}
+
+      <div className="subsec">
+        <h3>คู่มือตั้งค่าตามรุ่นอุปกรณ์</h3>
+        <p className="muted small">เลือกรุ่นจากแคตตาล็อก เพื่อดู RTSP URL / ขั้นตอน / โค้ดตัวอย่างที่เติมค่าของอุปกรณ์นี้ให้แล้ว</p>
+        <ProfilePicker value={guideProfile?.id ?? null} onPick={pickProfile} onlyType={device.type} />
+        {guideProfile && (
+          <ProfileGuide
+            profile={guideProfile}
+            deviceId={device.id}
+            creds={lastCreds}
+            onUseRtsp={device.type === 'camera' ? (u) => void useRtsp(u) : undefined}
+          />
+        )}
+      </div>
 
       {(device.access_level === 'owner' || device.access_level === 'admin') && (
         <div className="subsec">

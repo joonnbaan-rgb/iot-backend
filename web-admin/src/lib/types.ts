@@ -60,6 +60,20 @@ export type SiteRole = 'admin' | 'operator' | 'viewer';
 export interface Site { id: string; name: string; kind: SiteKind; is_personal: boolean; my_role: SiteRole; member_count: number; device_count: number }
 export interface SiteMember { user_id: string; email: string; role: SiteRole; created_at: string }
 
+export interface ProfileField { key: string; label: string; default?: string; placeholder?: string; secret?: boolean }
+export interface DeviceProfile {
+  id: string; vendor: string; model: string; device_type: DeviceType; protocol: 'rtsp' | 'mqtt';
+  integration: 'rtsp' | 'direct' | 'script' | 'rule' | 'bridge' | 'planned';
+  description: string; default_name: string; default_unit: string | null;
+  fields: ProfileField[]; rtsp_templates: { label: string; url: string }[]; steps: string[];
+  snippets: { title: string; language: string; code: string }[]; links: { title: string; url: string }[];
+  notes: string; tags: string[]; source: 'builtin' | 'custom'; enabled: boolean;
+}
+export const INTEGRATION_LABEL: Record<DeviceProfile['integration'], string> = {
+  rtsp: 'กล้อง RTSP', direct: 'เชื่อมตรง (โค้ด/เฟิร์มแวร์)', script: 'สคริปต์ในอุปกรณ์', rule: 'กฎในเฟิร์มแวร์ (ส่งข้อมูลอย่างเดียว)',
+  bridge: 'ต้องมีตัวกลาง (Node-RED)', planned: 'ยังไม่รองรับเต็มรูปแบบ',
+};
+
 export interface MqttCredentials {
   host: string; port: number; tls: boolean; username: string; password: string; client_id: string;
   publish_topics: string[]; subscribe_topics: string[];

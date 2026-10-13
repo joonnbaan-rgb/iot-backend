@@ -8,6 +8,7 @@ import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { colors, radius, spacing } from '@/theme';
 import { Segmented } from '@/components/Segmented';
+import { ProfilePickerSection } from '@/components/ProfilePickerSection';
 import type { Device, DiscoveredDevice, Site } from '@/types/api';
 import type { DevicesStackParamList } from '@/navigation/types';
 
@@ -225,6 +226,12 @@ export function AddDeviceScreen({ navigation }: Props) {
                 จับคู่กับ {paired.name} ({paired.ip})
               </Text>
             )}
+
+            <ProfilePickerSection
+              type={type}
+              onName={(n) => { if (!name.trim()) setName(n); }}
+              onRtsp={setRtspUrl}
+            />
 
             <TextField label="ชื่ออุปกรณ์" value={name} onChangeText={setName} placeholder="เช่น เซนเซอร์อุณหภูมิห้องนั่งเล่น" />
             <TextField

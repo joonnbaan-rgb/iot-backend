@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { TYPE_LABEL, type DeviceType, type Plan, type PlanOverrides, type ReferralSettings, type InviteCreated, type UserDevice, type UserRole, type UserRow } from '../lib/types';
+import { INTEGRATION_LABEL, TYPE_LABEL, type DeviceType, type Plan, type PlanOverrides, type ReferralSettings, type InviteCreated, type UserDevice, type UserRole, type UserRow } from '../lib/types';
 import { fmtDateTime } from '../lib/format';
 import { ErrorBox, Modal, PageHead, errMsg, useLoad } from '../components/ui';
 
@@ -89,6 +89,7 @@ export function Admin() {
 
       <PlansCard plans={plans.data ?? []} onChanged={() => plans.reload()} />
       <ReferralCard plans={plans.data ?? []} />
+      <CatalogCard />
 
       <section className="card">
         <h2>ใบเชิญสมัครสมาชิก</h2>
@@ -292,6 +293,49 @@ function PlansCard({ plans, onChanged }: { plans: Plan[]; onChanged: () => Promi
         <button className="btn primary" type="submit">+ เพิ่มแพ็กเกจ</button>
       </form>
       <p className="muted small">แพ็กเกจใหม่เริ่มที่ Telegram อย่างเดียว ไม่บันทึกคลิป — ปรับต่อในตารางด้านบนได้ทันที</p>
+    </section>
+  );
+}
+
+function CatalogCard() {
+  const list = useLoad(() => api.deviceProfiles({ all: true }), []);
+  const [q, setQ] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const rows = (list.data ?? []).filter((p) => !q.trim() || `${p.vendor} ${p.model}`.toLowerCase().includes(q.trim().toLowerCase()));
+
+  async function toggle(id: string, enabled: boolean) {
+    setError(null);
+    try {
+      await api.setProfileEnabled(id, enabled);
+      await list.reload();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>แคตตาล็อกรุ่นอุปกรณ์ ({list.data?.length ?? 0})</h2>
+      <p className="muted">รุ่นที่เปิดอยู่จะให้ผู้ใช้เลือกตอนเพิ่มอุปกรณ์ (พร้อมคู่มือและโค้ดตั้งค่า) ปิดรุ่นที่ไม่ต้องการให้เห็นได้ — เพิ่มรุ่นของคุณเองผ่าน API <span className="mono">POST /device-profiles</span></p>
+      <ErrorBox message={error ?? list.error} />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหา" style={{ maxWidth: 260, marginBottom: 8 }} />
+      <div className="table-wrap flat" style={{ maxHeight: 420, overflow: 'auto' }}>
+        <table>
+          <thead><tr><th>ยี่ห้อ</th><th>รุ่น</th><th>ประเภท</th><th>การเชื่อมต่อ</th><th>ที่มา</th><th>เปิดใช้</th></tr></thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.id}>
+                <td>{p.vendor}</td>
+                <td>{p.model}</td>
+                <td>{TYPE_LABEL[p.device_type]}</td>
+                <td className="muted">{INTEGRATION_LABEL[p.integration]}</td>
+                <td className="muted">{p.source === 'builtin' ? 'มากับระบบ' : 'เพิ่มเอง'}</td>
+                <td><input type="checkbox" checked={p.enabled} onChange={(e) => void toggle(p.id, e.target.checked)} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

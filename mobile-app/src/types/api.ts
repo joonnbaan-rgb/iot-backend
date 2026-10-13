@@ -210,3 +210,20 @@ export interface PendingShare {
   group_name: string | null;
   created_at: string;
 }
+
+export interface DeviceProfile {
+  id: string;
+  vendor: string;
+  model: string;
+  device_type: 'sensor' | 'camera' | 'actuator';
+  protocol: 'rtsp' | 'mqtt';
+  integration: 'rtsp' | 'direct' | 'script' | 'rule' | 'bridge' | 'planned';
+  description: string;
+  default_name: string;
+  default_unit: string | null;
+  fields: { key: string; label: string; default?: string; placeholder?: string; secret?: boolean }[];
+  rtsp_templates: { label: string; url: string }[];
+  steps: string[];
+  notes: string;
+  tags: string[];
+}

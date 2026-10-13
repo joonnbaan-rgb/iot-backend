@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useSocketEvent } from '../lib/socket';
 import { DeviceGlyph, inferIcon } from '../lib/deviceIcons';
-import { TYPE_LABEL, type Device, type DeviceType } from '../lib/types';
+import { TYPE_LABEL, type Device, type DeviceProfile, type DeviceType } from '../lib/types';
 import { timeAgo } from '../lib/format';
+import { ProfileGuide } from '../components/ProfileGuide';
+import { ProfilePicker } from '../components/ProfilePicker';
 import { Empty, ErrorBox, Modal, PageHead, StatusPill, errMsg, useLoad } from '../components/ui';
 
 export function Devices() {
@@ -103,6 +105,7 @@ function AddDevice({ sites, onClose, onDone }: { sites: { id: string; name: stri
   const [location, setLocation] = useState('');
   const [rtsp, setRtsp] = useState('');
   const [siteId, setSiteId] = useState(sites[0]?.id ?? '');
+  const [profile, setProfile] = useState<DeviceProfile | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,15 +114,17 @@ function AddDevice({ sites, onClose, onDone }: { sites: { id: string; name: stri
     setBusy(true);
     setError(null);
     try {
-      onDone(
-        await api.createDevice({
+      const created = await api.createDevice({
           name: name.trim(),
           type,
           location: location.trim() || undefined,
           rtsp_url: type === 'camera' && rtsp.trim() ? rtsp.trim() : undefined,
           site_id: siteId || undefined,
-        }),
-      );
+        });
+      if (profile) {
+        try { localStorage.setItem(`profile:${created.id}`, profile.id); } catch { /* ไม่เป็นไร */ }
+      }
+      onDone(created);
     } catch (err) {
       setError(errMsg(err));
       setBusy(false);
@@ -129,6 +134,22 @@ function AddDevice({ sites, onClose, onDone }: { sites: { id: string; name: stri
   return (
     <Modal title="เพิ่มอุปกรณ์" onClose={onClose}>
       <form onSubmit={submit} className="form">
+        <ProfilePicker
+          value={profile?.id ?? null}
+          onPick={(p) => {
+            setProfile(p);
+            if (p) {
+              setType(p.device_type);
+              if (!name.trim()) setName(p.default_name || `${p.vendor} ${p.model}`.slice(0, 128));
+            }
+          }}
+        />
+        {profile && profile.device_type === 'camera' && (
+          <ProfileGuide profile={profile} rtspOnly onUseRtsp={setRtsp} />
+        )}
+        {profile && profile.device_type !== 'camera' && (
+          <p className="muted small">เพิ่มอุปกรณ์แล้วเปิดหน้าอุปกรณ์ → "คู่มือตั้งค่าตามรุ่น" เพื่อดูขั้นตอนและโค้ดตัวอย่างที่เติม MQTT ให้แล้ว</p>
+        )}
         <label className="field"><span>ชื่ออุปกรณ์</span><input value={name} onChange={(e) => setName(e.target.value)} required maxLength={128} autoFocus /></label>
         <label className="field">
           <span>ประเภท</span>
